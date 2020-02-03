@@ -12,15 +12,16 @@
 void logger(String message, bool endLine = true);
 
 struct Config {
-  char wifiSsid[32] = "";
-  char wifiPassword[64] = "";
-  char mqttHost[128] = "";
-  int  mqttPort = 1883;
-  char mqttUsername[32] = "";
-  char mqttPassword[64] = "";
-  char mqttPublishChannel[128] = "device/to/marvin";
-  char mqttSubscribeChannel[128] = "marvin/to/device";
-  char uuid[64] = "";
+    char wifiSsid[32] = "";
+    char wifiPassword[64] = "";
+    bool mqttEnable = true;
+    char mqttHost[128] = "";
+    int  mqttPort = 1883;
+    char mqttUsername[32] = "";
+    char mqttPassword[64] = "";
+    char mqttPublishChannel[128] = "device/to/marvin";
+    char mqttSubscribeChannel[128] = "marvin/to/device";
+    char uuid[64] = "";
 };
 
 /* ***** pin component ***** */
@@ -55,6 +56,10 @@ void logger(String message, bool endLine) {
             Serial.print(message);
         }
     }
+}
+
+unsigned long getMillis() {
+    return esp_timer_get_time() / 1000;
 }
 
 bool getConfig() {
@@ -102,6 +107,7 @@ bool getConfig() {
     if (
         !json.containsKey("wifiSsid") ||
         !json.containsKey("wifiPassword") ||
+        !json.containsKey("mqttEnable") ||
         !json.containsKey("mqttHost") ||
         !json.containsKey("mqttPort") ||
         !json.containsKey("mqttUsername") ||
@@ -119,6 +125,7 @@ bool getConfig() {
 
     strlcpy(config.wifiSsid, json["wifiSsid"], sizeof(config.wifiSsid));
     strlcpy(config.wifiPassword, json["wifiPassword"], sizeof(config.wifiPassword));
+    config.mqttEnable = json["mqttEnable"] | true;
     strlcpy(config.mqttHost, json["mqttHost"], sizeof(config.mqttHost));
     config.mqttPort = json["mqttPort"] | 1883;
     strlcpy(config.mqttUsername, json["mqttUsername"], sizeof(config.mqttUsername));
@@ -156,6 +163,7 @@ bool setConfig(Config newConfig) {
 
     json["wifiSsid"] = String(newConfig.wifiSsid);
     json["wifiPassword"] = String(newConfig.wifiPassword);
+    json["mqttEnable"] = newConfig.mqttEnable;
     json["mqttHost"] = String(newConfig.mqttHost);
     json["mqttPort"] = newConfig.mqttPort;
     json["mqttUsername"] = String(newConfig.mqttUsername);
@@ -266,6 +274,10 @@ String processor(const String& var){
         return String(config.wifiSsid);
     } else if (var == "WIFI_PASSWD") {
         return String(config.wifiPassword);
+    } else if(var == "MQTT_ENABLE") {
+        if (true == config.mqttEnable) {
+            return String("checked");
+        }
     } else if (var == "MQTT_HOST") {
         return String(config.mqttHost);
     } else if (var == "MQTT_PORT") {
@@ -304,6 +316,12 @@ void serverConfig() {
 
     server.on("/save", HTTP_POST, [] (AsyncWebServerRequest *request) {
         int params = request->params();
+
+        if (request->hasParam("mqttEnable", true)) {
+            config.mqttEnable = true;
+        } else {
+            config.mqttEnable = false;
+        }
 
         for (int i = 0 ; i < params ; i++) {
             AsyncWebParameter* p = request->getParam(i);
@@ -402,10 +420,6 @@ void resetConfig() {
     restart();
 }
 
-unsigned long getMillis() {
-    return esp_timer_get_time() / 1000;
-}
-
 void setup() {
     Serial.begin(115200);
     logger(F("Start program !"));
@@ -432,7 +446,7 @@ void setup() {
         if (true == checkWifiConfigValues()) {
             wifiConnected = wifiConnect();
 
-            if (true == wifiConnected) {
+            if (true == wifiConnected && true == config.mqttEnable) {
                 mqttClient.setClient(wifiClient);
                 mqttClient.setServer(config.mqttHost, config.mqttPort);
                 mqttClient.setCallback(callback);
@@ -441,7 +455,13 @@ void setup() {
         }
     } // endif true == getConfig()
 
-    if (false == wifiConnected || false == mqttConnected) {
+    if (false == wifiConnected) {
+        startApp = false;
+    } else if (
+        true == wifiConnected &&
+        true == config.mqttEnable && 
+        false == mqttConnected
+    ) {
         startApp = false;
     } else {
         startApp = true;
