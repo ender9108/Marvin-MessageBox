@@ -31,7 +31,7 @@ const bool debug = true;
 const char *mqttName = "MyLoveBox";
 const char *wifiApSsid = "love-box-wifi-ssid";
 const char *wifiApPassw = "love-box-wifi-passw";
-const char *appName = "My love box";
+const char *appName = "MessageBox";
 const char *telegramToken = "991468015:AAFcBsqCqDlwecDNOIztzgxGbDkPYPrllhg";
 
 bool wifiConnected = false;
@@ -216,7 +216,6 @@ bool wifiConnect() {
 
     Serial.print(F("Error connection to "));
     logger(String(config.wifiSsid));
-    errorMessage = "Wifi connection error to " + String(config.wifiSsid);
     return false;
 }
 
@@ -253,7 +252,6 @@ bool mqttConnect() {
             delay(5000);
 
             if (count == 10) {
-              errorMessage = "Mqtt connection error to " + String(config.mqttHost);
               return false;
             }
         }
@@ -261,7 +259,6 @@ bool mqttConnect() {
         count++;
     }
 
-    errorMessage = "Mqtt connection error to " + String(config.mqttHost);
     return false;
 }
 
@@ -420,6 +417,10 @@ void resetConfig() {
     restart();
 }
 
+void handleNewMessages(int numNewMessages) {
+
+}
+
 void setup() {
     Serial.begin(115200);
     logger(F("Start program !"));
@@ -456,12 +457,15 @@ void setup() {
     } // endif true == getConfig()
 
     if (false == wifiConnected) {
+        errorMessage = "Wifi connection error to " + String(config.wifiSsid);
         startApp = false;
+        
     } else if (
         true == wifiConnected &&
         true == config.mqttEnable && 
         false == mqttConnected
     ) {
+        errorMessage = "Mqtt connection error to " + String(config.mqttHost);
         startApp = false;
     } else {
         startApp = true;
@@ -501,7 +505,7 @@ void loop() {
             int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
             if (numNewMessages > 0) {
-                //handleNewMessages(numNewMessages);
+                handleNewMessages(numNewMessages);
             }
         }
 
