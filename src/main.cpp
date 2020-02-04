@@ -491,20 +491,20 @@ void serverConfig() {
             JsonVariant action = json["action"];
 
             if (json["action"] == "ping") {
-                sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\" \"payload\": \"pong\"}", action.as<char *>());
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"pong\"}", action.as<char *>());
             }
             else if (json["action"] == "restart") {
-                sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Restart in progress\"}", action.as<char *>());
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"Restart in progress\"}", action.as<char *>());
                 //restartRequested = getMillis();
                 restartRequested = millis();
             }
             else if (json["action"] == "reset") {
-                sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Reset in progress\"}", action.as<char *>());
+                sprintf(response, "{\"code\": \"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"Reset in progress\"}", action.as<char *>());
                 //resetRequested = getMillis();
                 resetRequested = millis();
             }
             else {
-                sprintf(response, "{\"code\": \"404\", \"payload\": \"Action %s not found !\"}", action.as<char *>());
+                sprintf(response, "{\"code\":\"404\",\"uuid\":\""+String(config.uuid)+"\",\"payload\":\"Action %s not found !\"}", action.as<char *>());
             }
 
             mqttClient.publish(config.mqttPublishChannel, response);
@@ -554,7 +554,13 @@ void handleNewMessages(int numNewMessages) {
             lastMessage.message = text;
 
             logger(F("Message waiting to be read"));
-            bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture...", "");
+            bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture.", "");
+            #if MQTT_ENABLE == true
+            mqttClient.publish(
+                config.mqttPublishChannel, 
+                "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"readMessage\",\"payload\":\"Message reçu. En attente de lecture.\"}"
+            );
+            #endif
         }
 
         if (text == "/start") {
@@ -575,8 +581,14 @@ void readMessage() {
         logger(F("Display message on screen"));
 
         logger(F("Send confirmation read message to bot"));
-        bot.sendSimpleMessage(lastTelegramChatId, "Message lu !", "");
+        bot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
         notification(false);
+        #if MQTT_ENABLE == true
+        mqttClient.publish(
+            config.mqttPublishChannel, 
+            "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}"
+        );
+        #endif
         
         lastMessage.chatId = "";
         lastMessage.name = "";
