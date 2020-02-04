@@ -378,19 +378,65 @@ void handleHome() {
     }
 }
 
-void handleRestart() {
-    String content = "";
-    File file = SPIFFS.open("restart.html", FILE_READ);
+void handleSave() {
+    bool error = false;
 
-    if (!file) {
-        logger("Failed to open file \"restart.html\".");
-        server.send(500, "text/plain", "Internal error");
+    for (int i = 0; i < server.args(); i++) {
+        logger(server.argName(i), false);
+        logger(" : ", false);
+        logger(server.arg(i));
+    }
+
+    if (!server.hasArg("wifiSsid") || !server.hasArg("wifiPassword")){  
+        error = true;
+        logger("No wifiSsid and wifiPassword args");
+        errorMessage = "[WIFI ERROR] - No ssid or password send";
+    }
+
+    if (server.arg("wifiSsid").length() <= 1 || server.arg("wifiPassword").length() <= 1) {
+        error = true;
+        logger("wifiSsid and wifiPassword args is empty");
+        errorMessage = "[WIFI ERROR] - Ssid or password is empty";
+    }
+
+    if (false == error) {
+        server.arg("wifiSsid").toCharArray(config.wifiSsid, 32);
+        server.arg("wifiPassword").toCharArray(config.wifiPassword, 64);
+        #if MQTT_ENABLE == true
+            server.arg("mqttHost").toCharArray(config.mqttHost, 128);
+            config.mqttPort = server.arg("mqttPort").toInt();
+
+            if (server.hasArg("mqttEnable")) {
+                config.mqttEnable = true;
+            } else {
+                config.mqttEnable = false;
+            }
+
+            server.arg("mqttUsername").toCharArray(config.mqttUsername, 32);
+            server.arg("mqttPassword").toCharArray(config.mqttPassword, 64);
+            server.arg("mqttPublishChannel").toCharArray(config.mqttPublishChannel, 128);
+            server.arg("mqttSubscribeChannel").toCharArray(config.mqttSubscribeChannel, 128);
+        #endif
+
+        setConfig(config);
+
+        String content = "";
+        File file = SPIFFS.open("restart.html", FILE_READ);
+
+        if (!file) {
+            logger("Failed to open file \"restart.html\".");
+            server.send(500, "text/plain", "Internal error");
+        } else {
+            content = file.readString();
+            content.replace("%TITLE%", String(appName));
+            content.replace("%MODULE_NAME%", String(appName));
+
+            server.send(200, "text/html", content);
+        }
     } else {
-        content = file.readString();
-        content.replace("%TITLE%", String(appName));
-        content.replace("%MODULE_NAME%", String(appName));
-
-        server.send(200, "text/html", content);
+        Serial.println("Config error, redirect to /");
+        server.sendHeader("Location", "/", true);
+        server.send(302, "text/plain", "");
     }
 }
 
@@ -423,10 +469,10 @@ void handleNotFound() {
 }
 
 void serverConfig() {
-    server.on("/", handleHome);
-    //server.on("/save", handleSave);
-    server.on("/restart", handleRestart);
-    server.on("/bootstrap.min.css", handleCss);
+    server.on("/", HTTP_GET, handleHome);
+    server.on("/save", HTTP_POST handleSave);
+    server.on("/restart", HTTP_GET, restart);
+    server.on("/bootstrap.min.css", HTTP_GET, handleCss);
     server.onNotFound(handleNotFound);
 
     server.begin();
@@ -471,11 +517,13 @@ void notification(bool turnOn) {
         digitalWrite(LED_2_PIN, HIGH);
         digitalWrite(LED_3_PIN, HIGH);
         digitalWrite(LED_4_PIN, HIGH);
+        logger(F("Led on"));
     } else {
         digitalWrite(LED_1_PIN, LOW);
         digitalWrite(LED_2_PIN, LOW);
         digitalWrite(LED_3_PIN, LOW);
         digitalWrite(LED_4_PIN, LOW);
+        logger(F("Led off"));
     }
 }
 
@@ -485,7 +533,12 @@ void handleNewMessages(int numNewMessages) {
         String text = bot.messages[i].text;
         String fromName = bot.messages[i].from_name;
 
+        logger("Chat id :" + chatId);
+        logger("From name :" + fromName);
+        logger("Text :" + text);
+
         if (fromName == "") {
+            logger(F("No from name (Guest)"));
             fromName = "Guest";
         }
 
@@ -497,10 +550,12 @@ void handleNewMessages(int numNewMessages) {
             lastMessage.name = fromName;
             lastMessage.message = text;
 
+            logger(F("Message waiting to be read"));
             bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture...", "");
         }
 
         if (text == "/start") {
+            logger(F("Send message to telegram bot (action called : /start)"));
             String welcome = "Welcome to MessageBox, " + fromName + ".\n";
             welcome += "/message [MY_TEXT] : to send message in this box !\n";
             bot.sendSimpleMessage(chatId, welcome, "Markdown");
@@ -509,11 +564,14 @@ void handleNewMessages(int numNewMessages) {
 }
 
 void readMessage() {
-    if (lastTelegramMessage.trim() == "") {
-        // Display "Aucun message reçu";
+    if (lastMessage.message.trim() == "") {
+        logger(F("No new message"));
+        // Display "Pas de nouveau message";
     } else {
         // Display message on screen
+        logger(F("Display message on screen"));
 
+        logger(F("Send confirmation read message to bot"));
         bot.sendSimpleMessage(lastTelegramChatId, "Message lu !", "");
         notification(false);
         
@@ -659,11 +717,13 @@ void loop() {
             int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
             if (numNewMessages > 0) {
+                logger(F("New message !"));
                 handleNewMessages(numNewMessages);
             }
         }
 
         #if OTA_ENABLE == true
+            logger(F("Start ArduinoOTA handle"));
             ArduinoOTA.handle();
         #endif
     } else {
