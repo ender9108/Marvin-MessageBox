@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
 #include <UniversalTelegramBot.h>
 #include <Adafruit_NeoPixel.h>
 #include "SPI.h"
@@ -13,13 +13,13 @@
 #define OTA_ENABLE true
 
 #if MQTT_ENABLE == true
-// @todo See large message method in exemple
-#define MQTT_MAX_PACKET_SIZE 2048
-#include <PubSubClient.h>
+    // @todo See large message method in exemple
+    #define MQTT_MAX_PACKET_SIZE 2048
+    #include <PubSubClient.h>
 #endif
 
 #if OTA_ENABLE == true
-#include <ArduinoOTA.h>
+    #include <ArduinoOTA.h>
 #endif
 
 void logger(String message, bool endLine = true);
@@ -40,26 +40,30 @@ struct Config {
 };
 
 WiFiClientSecure wifiClient;
+
 #if MQTT_ENABLE == true
-PubSubClient mqttClient;
+    PubSubClient mqttClient;
 #endif
+
 Config config;
-AsyncWebServer server(80);
+WebServer server(80);
 TFT_eSPI screen = TFT_eSPI();
 
 #if MQTT_ENABLE == true
-const char *configFilePath = "/config.json";
-const char *mqttName = "MessageBox";
+    const char *configFilePath = "/config.json";
+    const char *mqttName = "MessageBox";
 #else
-const char *configFilePath = "/config_cc.json";
+    const char *configFilePath = "/config_cc.json";
 #endif
+
 const bool debug = true;
 const char *wifiApSsid = "message-box-wifi-ssid";
 const char *wifiApPassw = "message-box-wifi-passw";
 const char *appName = "MessageBox";
 const char *telegramToken = "***** TOKEN *****";
+
 #if OTA_ENABLE == true
-const char *otaPasswordHash = "***** MD5 password *****";
+    const char *otaPasswordHash = "***** MD5 password *****";
 #endif
 
 bool wifiConnected = false;
@@ -69,9 +73,9 @@ long telegramBotLasttime;
 String errorMessage = "";
 
 #if MQTT_ENABLE == true
-bool mqttConnected = false;
-unsigned long restartRequested = 0;
-unsigned long resetRequested = 0;
+    bool mqttConnected = false;
+    unsigned long restartRequested = 0;
+    unsigned long resetRequested = 0;
 #endif
 
 UniversalTelegramBot bot(telegramToken, wifiClient);
@@ -136,13 +140,13 @@ bool getConfig() {
         !json.containsKey("wifiSsid") ||
         !json.containsKey("wifiPassword") ||
         #if MQTT_ENABLE == true
-        !json.containsKey("mqttEnable") ||    
-        !json.containsKey("mqttHost") ||
-        !json.containsKey("mqttPort") ||
-        !json.containsKey("mqttUsername") ||
-        !json.containsKey("mqttPassword") ||
-        !json.containsKey("mqttPublishChannel") ||
-        !json.containsKey("mqttSubscribeChannel") ||
+            !json.containsKey("mqttEnable") ||    
+            !json.containsKey("mqttHost") ||
+            !json.containsKey("mqttPort") ||
+            !json.containsKey("mqttUsername") ||
+            !json.containsKey("mqttPassword") ||
+            !json.containsKey("mqttPublishChannel") ||
+            !json.containsKey("mqttSubscribeChannel") ||
         #endif
         !json.containsKey("uuid")
     ) {
@@ -155,40 +159,20 @@ bool getConfig() {
 
     strlcpy(config.wifiSsid, json["wifiSsid"], sizeof(config.wifiSsid));
     strlcpy(config.wifiPassword, json["wifiPassword"], sizeof(config.wifiPassword));
+
     #if MQTT_ENABLE == true
-    config.mqttEnable = json["mqttEnable"] | true;
-    strlcpy(config.mqttHost, json["mqttHost"], sizeof(config.mqttHost));
-    config.mqttPort = json["mqttPort"] | 1883;
-    strlcpy(config.mqttUsername, json["mqttUsername"], sizeof(config.mqttUsername));
-    strlcpy(config.mqttPassword, json["mqttPassword"], sizeof(config.mqttPassword));
-    strlcpy(config.mqttPublishChannel, json["mqttPublishChannel"], sizeof(config.mqttPublishChannel));
-    strlcpy(config.mqttSubscribeChannel, json["mqttSubscribeChannel"], sizeof(config.mqttSubscribeChannel));
+        config.mqttEnable = json["mqttEnable"] | true;
+        strlcpy(config.mqttHost, json["mqttHost"], sizeof(config.mqttHost));
+        config.mqttPort = json["mqttPort"] | 1883;
+        strlcpy(config.mqttUsername, json["mqttUsername"], sizeof(config.mqttUsername));
+        strlcpy(config.mqttPassword, json["mqttPassword"], sizeof(config.mqttPassword));
+        strlcpy(config.mqttPublishChannel, json["mqttPublishChannel"], sizeof(config.mqttPublishChannel));
+        strlcpy(config.mqttSubscribeChannel, json["mqttSubscribeChannel"], sizeof(config.mqttSubscribeChannel));
     #endif
+
     strlcpy(config.uuid, json["uuid"], sizeof(config.uuid));
 
     configFile.close();
-
-    logger(F("wifiSsid : "), false);
-    logger(String(config.wifiSsid));
-    logger(F("wifiPassword : "), false);
-    logger(String(config.wifiPassword));
-    #if MQTT_ENABLE == true
-    logger(F("mqttHost : "), false);
-    logger(String(config.mqttHost));
-    logger(F("mqttPort : "), false);
-    logger(String(config.mqttPort));
-    logger(F("mqttUsername : "), false);
-    logger(String(config.mqttUsername));
-    logger(F("mqttPassword : "), false);
-    logger(String(config.mqttPassword));
-    logger(F("mqttPublishChannel : "), false);
-    logger(String(config.mqttPublishChannel));
-    logger(F("mqttSubscribeChannel : "), false);
-    logger(String(config.mqttSubscribeChannel));
-    logger(F("uuid : "), false);
-    #endif
-    logger(F("uuid : "), false);
-    logger(String(config.uuid));
 
     return true;
 }
@@ -199,13 +183,13 @@ bool setConfig(Config newConfig) {
     json["wifiSsid"] = String(newConfig.wifiSsid);
     json["wifiPassword"] = String(newConfig.wifiPassword);
     #if MQTT_ENABLE == true
-    json["mqttEnable"] = newConfig.mqttEnable;
-    json["mqttHost"] = String(newConfig.mqttHost);
-    json["mqttPort"] = newConfig.mqttPort;
-    json["mqttUsername"] = String(newConfig.mqttUsername);
-    json["mqttPassword"] = String(newConfig.mqttPassword);
-    json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);
-    json["mqttSubscribeChannel"] = String(newConfig.mqttSubscribeChannel);
+        json["mqttEnable"] = newConfig.mqttEnable;
+        json["mqttHost"] = String(newConfig.mqttHost);
+        json["mqttPort"] = newConfig.mqttPort;
+        json["mqttUsername"] = String(newConfig.mqttUsername);
+        json["mqttPassword"] = String(newConfig.mqttPassword);
+        json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);
+        json["mqttSubscribeChannel"] = String(newConfig.mqttSubscribeChannel);
     #endif
 
     if (strlen(newConfig.uuid) == 0) {
@@ -272,78 +256,38 @@ bool checkWifiConfigValues() {
 }
 
 #if MQTT_ENABLE == true
-bool mqttConnect() {
-    int count = 0;
+    bool mqttConnect() {
+        int count = 0;
 
-    while (!mqttClient.connected()) {
-        logger("Attempting MQTT connection (host: " + String(config.mqttHost) + ")...");
+        while (!mqttClient.connected()) {
+            logger("Attempting MQTT connection (host: " + String(config.mqttHost) + ")...");
 
-        if (mqttClient.connect(mqttName, config.mqttUsername, config.mqttPassword)) {
-            logger(F("connected !"));
+            if (mqttClient.connect(mqttName, config.mqttUsername, config.mqttPassword)) {
+                logger(F("connected !"));
 
-            if (strlen(config.mqttSubscribeChannel) > 1) {
-                mqttClient.subscribe(config.mqttSubscribeChannel);
+                if (strlen(config.mqttSubscribeChannel) > 1) {
+                    mqttClient.subscribe(config.mqttSubscribeChannel);
+                }
+                
+                return true;
+            } else {
+                logger(F("failed, rc="), false);
+                logger(String(mqttClient.state()));
+                logger(F("try again in 5 seconds"));
+                // Wait 5 seconds before retrying
+                delay(5000);
+
+                if (count == 10) {
+                    return false;
+                }
             }
-            
-            return true;
-        } else {
-            logger(F("failed, rc="), false);
-            logger(String(mqttClient.state()));
-            logger(F("try again in 5 seconds"));
-            // Wait 5 seconds before retrying
-            delay(5000);
 
-            if (count == 10) {
-                return false;
-            }
+            count++;
         }
 
-        count++;
+        return false;
     }
-
-    return false;
-}
 #endif
-
-String processor(const String& var){
-    Serial.println(var);
-
-    if (var == "TITLE" || var == "MODULE_NAME"){
-        return String(appName);
-    } else if (var == "WIFI_SSID") {
-        return String(config.wifiSsid);
-    } else if (var == "WIFI_PASSWD") {
-        return String(config.wifiPassword);
-    }
-    #if MQTT_ENABLE == true 
-    else if(var == "MQTT_ENABLE") {
-        if (true == config.mqttEnable) {
-            return String("checked");
-        }
-    } else if (var == "MQTT_HOST") {
-        return String(config.mqttHost);
-    } else if (var == "MQTT_PORT") {
-        return String(config.mqttPort);
-    } else if (var == "MQTT_USERNAME") {
-        return String(config.mqttUsername);
-    } else if (var == "MQTT_PASSWD") {
-        return String(config.mqttPassword);
-    } else if (var == "MQTT_PUB_CHAN") {
-        return String(config.mqttPublishChannel);
-    } else if (var == "MQTT_SUB_CHAN") {
-        return String(config.mqttSubscribeChannel);
-    } 
-    #endif
-    else if (var == "ERROR_MESSAGE") {
-        return errorMessage;
-    } else if (var == "ERROR_HIDDEN") {
-        if (errorMessage.length() == 0) {
-            return String("d-none");
-        }
-    }
-
-    return String();
-}
 
 void restart() {
     logger("Restart ESP");
@@ -358,103 +302,134 @@ void resetConfig() {
     restart();
 }
 
-void serverConfig() {
-    server.on("/", HTTP_GET, [] (AsyncWebServerRequest *request) {
+void handleHome() {
+    String content = "";
+
+    #if MQTT_ENABLE == true
+        char *indexFile = "index.html";
+    #else
+        char *indexFile = "index_cc.html";
+    #endif
+
+    File file = SPIFFS.open(indexFile, FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"" + String(indexFile) + "\".");
+        server.send(500, "text/plain", "Internal error");
+    } else {
+        content = file.readString();
+        content.replace("%TITLE%", String(appName));
+        content.replace("%MODULE_NAME%", String(appName));
+        content.replace("%ERROR_MESSAGE%", errorMessage);
+
+        content.replace("%WIFI_SSID%", String(config.wifiSsid));
+        content.replace("%WIFI_PASSWD%", String(config.wifiPassword));
         #if MQTT_ENABLE == true
-        request->send(SPIFFS, "/index.html", "text/html", false, processor);
-        #else
-        request->send(SPIFFS, "/index_cc.html", "text/html", false, processor);
-        #endif
-    });
-    server.on("/bootstrap.min.css", HTTP_GET, [] (AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/bootstrap.min.css", "text/css");
-    });
-    server.on("/save", HTTP_POST, [] (AsyncWebServerRequest *request) {
-        int params = request->params();
-
-        #if MQTT_ENABLE == true
-        if (request->hasParam("mqttEnable", true)) {
-            config.mqttEnable = true;
-        } else {
-            config.mqttEnable = false;
-        }
-        #endif
-
-        for (int i = 0 ; i < params ; i++) {
-            AsyncWebParameter* p = request->getParam(i);
-
-            if (p->name() == "wifiSsid") {
-                strlcpy(config.wifiSsid, p->value().c_str(), sizeof(config.wifiSsid));
-            } else if (p->name() == "wifiPasswd") {
-                strlcpy(config.wifiPassword, p->value().c_str(), sizeof(config.wifiPassword));
-            } 
-            #if MQTT_ENABLE == true
-            else if (p->name() == "mqttHost") {
-                strlcpy(config.mqttHost, p->value().c_str(), sizeof(config.mqttHost));
-            } else if (p->name() == "mqttPort") {
-                config.mqttPort = p->value().toInt();
-            } else if (p->name() == "mqttUsername") {
-                strlcpy(config.mqttUsername, p->value().c_str(), sizeof(config.mqttUsername));
-            } else if (p->name() == "mqttPasswd") {
-                strlcpy(config.mqttPassword, p->value().c_str(), sizeof(config.mqttPassword));
-            } else if (p->name() == "mqttPublishChannel") {
-                strlcpy(config.mqttPublishChannel, p->value().c_str(), sizeof(config.mqttPublishChannel));
-            } else if (p->name() == "mqttSubscribeChannel") {
-                strlcpy(config.mqttSubscribeChannel, p->value().c_str(), sizeof(config.mqttSubscribeChannel));
+            if (true == config.mqttEnable) {
+                content.replace("%MQTT_ENABLE%", "checked");
+            } else {
+                content.replace("%MQTT_ENABLE%", "");
             }
-            #endif
-        }
-        // save config
-        setConfig(config);
 
-        request->send(SPIFFS, "/restart.html", "text/html", false, processor);
-    });
-    server.on("/restart", HTTP_GET, [] (AsyncWebServerRequest *request) {
-        restart();
-    });
-    server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(SPIFFS, "/404.html", "text/html", false, processor);
-    });
+            content.replace("%MQTT_HOST%", String(config.mqttHost));
+            content.replace("%MQTT_PORT%", String(config.mqttPort));
+            content.replace("%MQTT_USERNAME%", String(config.mqttUsername));
+            content.replace("%MQTT_PASSWD%", String(config.mqttPassword));
+            content.replace("%MQTT_PUB_CHAN%", String(config.mqttPublishChannel));
+            content.replace("%MQTT_SUB_CHAN%", String(config.mqttSubscribeChannel));
+        #endif
+
+        server.send(200, "text/html", content);
+    }
+}
+
+void handleRestart() {
+    String content = "";
+    File file = SPIFFS.open("restart.html", FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"restart.html\".");
+        server.send(500, "text/plain", "Internal error");
+        return false;
+    } else {
+        content = file.readString();
+        content.replace("%TITLE%", String(appName));
+        content.replace("%MODULE_NAME%", String(appName));
+
+        server.send(200, "text/html", content);
+    }
+}
+
+void handleCss() {
+    String content = "";
+    File file = SPIFFS.open("bootstrap.min.css", FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"bootstrap.min.css\".");
+        server.send(500, "text/plain", "Internal error");
+    } else {
+        server.send(200, "text/html", file.readString());
+    }
+}
+
+void handleNotFound() {
+    String content = "";
+    File file = SPIFFS.open("404.html", FILE_READ);
+
+    if (!file) {
+        logger("Failed to open file \"404.html\".");
+        server.send(500, "text/plain", "Internal error");
+    } else {
+        content = file.readString();
+        content.replace("%TITLE%", String(appName));
+        content.replace("%MODULE_NAME%", String(appName));
+
+        server.send(404, "text/html", content);
+    }
+}
+
+void serverConfig() {
+    server.on("/", handleHome);
+    server.on("/save", handleSave);
+    server.on("/restart", handleRestart);
+    server.on("/bootstrap.min.css", handleCss);
+    server.onNotFound(handleNotFound);
 
     server.begin();
     logger("HTTP server started");
 }
 
 #if MQTT_ENABLE == true
-void callback(char* topic, byte* payload, unsigned int length) {
-    StaticJsonDocument<256> json;
-    deserializeJson(json, payload, length);
+    void callback(char* topic, byte* payload, unsigned int length) {
+        StaticJsonDocument<256> json;
+        deserializeJson(json, payload, length);
 
-    char response[512];
-    
-    if (json.containsKey("action")) {
-        JsonVariant action = json["action"];
+        char response[512];
+        
+        if (json.containsKey("action")) {
+            JsonVariant action = json["action"];
 
-        if (json["action"] == "ping") {
-            sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\" \"payload\": \"pong\"}", action.as<char *>());
-        }
-        else if (json["action"] == "restart") {
-            sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Restart in progress\"}", action.as<char *>());
-            restartRequested = getMillis();
-        }
-        else if (json["action"] == "reset") {
-            sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Reset in progress\"}", action.as<char *>());
-            resetRequested = getMillis();
-        }
-        else {
-            sprintf(response, "{\"code\": \"404\", \"payload\": \"Action %s not found !\"}", action.as<char *>());
+            if (json["action"] == "ping") {
+                sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\" \"payload\": \"pong\"}", action.as<char *>());
+            }
+            else if (json["action"] == "restart") {
+                sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Restart in progress\"}", action.as<char *>());
+                restartRequested = getMillis();
+            }
+            else if (json["action"] == "reset") {
+                sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Reset in progress\"}", action.as<char *>());
+                resetRequested = getMillis();
+            }
+            else {
+                sprintf(response, "{\"code\": \"404\", \"payload\": \"Action %s not found !\"}", action.as<char *>());
+            }
+
+            mqttClient.publish(config.mqttPublishChannel, response);
         }
 
-        mqttClient.publish(config.mqttPublishChannel, response);
+        memset(response, 0, sizeof(response));
     }
-
-    memset(response, 0, sizeof(response));
-}
 #endif
-
-void handleNewMessages(int numNewMessages) {
-
-}
 
 void setup() {
     Serial.begin(115200);
@@ -589,6 +564,8 @@ void loop() {
                 handleNewMessages(numNewMessages);
             }
         }
+    } else {
+        server.handleClient();
     }
 
     #if OTA_ENABLE == true
