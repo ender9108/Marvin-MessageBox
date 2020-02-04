@@ -40,6 +40,79 @@ UniversalTelegramBot::UniversalTelegramBot(String token, Client &client) {
   this->client = &client;
 }
 
+bool UniversalTelegramBot::processResult(JsonObject result, int messageIndex) {
+  int update_id = result["update_id"];
+  // Check have we already dealt with this message (this shouldn't happen!)
+  if (last_message_received != update_id) {
+    last_message_received = update_id;
+    messages[messageIndex].update_id = update_id;
+
+    messages[messageIndex].text = F("");
+    messages[messageIndex].from_id = F("");
+    messages[messageIndex].from_name = F("");
+    messages[messageIndex].longitude = 0;
+    messages[messageIndex].latitude = 0;
+
+    if (result.containsKey("message")) {
+      JsonObject message = result["message"];
+      messages[messageIndex].type = F("message");
+      messages[messageIndex].from_id = message["from"]["id"].as<String>();
+      messages[messageIndex].from_name = message["from"]["first_name"].as<String>();
+
+      messages[messageIndex].date = message["date"].as<String>();
+      messages[messageIndex].chat_id = message["chat"]["id"].as<String>();
+      messages[messageIndex].chat_title = message["chat"]["title"].as<String>();
+
+      if (message.containsKey("text")) {
+        messages[messageIndex].text = message["text"].as<String>();
+
+      } else if (message.containsKey("location")) {
+        messages[messageIndex].longitude = message["location"]["longitude"].as<float>();
+        messages[messageIndex].latitude = message["location"]["latitude"].as<float>();
+      }
+    } else if (result.containsKey("channel_post")) {
+      JsonObject message = result["channel_post"];
+      messages[messageIndex].type = F("channel_post");
+
+      messages[messageIndex].text = message["text"].as<String>();
+      messages[messageIndex].date = message["date"].as<String>();
+      messages[messageIndex].chat_id = message["chat"]["id"].as<String>();
+      messages[messageIndex].chat_title = message["chat"]["title"].as<String>();
+
+    } else if (result.containsKey("callback_query")) {
+      JsonObject message = result["callback_query"];
+      messages[messageIndex].type = F("callback_query");
+      messages[messageIndex].from_id = message["from"]["id"].as<String>();
+      messages[messageIndex].from_name = message["from"]["first_name"].as<String>();
+
+      messages[messageIndex].text = message["data"].as<String>();
+      messages[messageIndex].date = message["date"].as<String>();
+      messages[messageIndex].chat_id = message["message"]["chat"]["id"].as<String>();
+      messages[messageIndex].chat_title = F("");
+    } else if (result.containsKey("edited_message")) {
+      JsonObject message = result["edited_message"];
+      messages[messageIndex].type = F("edited_message");
+      messages[messageIndex].from_id = message["from"]["id"].as<String>();
+      messages[messageIndex].from_name = message["from"]["first_name"].as<String>();
+
+      messages[messageIndex].date = message["date"].as<String>();
+      messages[messageIndex].chat_id = message["chat"]["id"].as<String>();
+      messages[messageIndex].chat_title = message["chat"]["title"].as<String>();
+
+      if (message.containsKey("text")) {
+        messages[messageIndex].text = message["text"].as<String>();
+
+      } else if (message.containsKey("location")) {
+        messages[messageIndex].longitude = message["location"]["longitude"].as<float>();
+        messages[messageIndex].latitude = message["location"]["latitude"].as<float>();
+      }
+    }
+
+    return true;
+  }
+  return false;
+}
+
 bool UniversalTelegramBot::checkForOkResponse(String response) {
   int responseLength = response.length();
 
@@ -433,80 +506,6 @@ String UniversalTelegramBot::sendPostPhoto(JsonObject payload) {
   closeClient();
   return response;
 }
-
-bool UniversalTelegramBot::processResult(JsonObject result, int messageIndex) {
-  int update_id = result["update_id"];
-  // Check have we already dealt with this message (this shouldn't happen!)
-  if (last_message_received != update_id) {
-    last_message_received = update_id;
-    messages[messageIndex].update_id = update_id;
-
-    messages[messageIndex].text = F("");
-    messages[messageIndex].from_id = F("");
-    messages[messageIndex].from_name = F("");
-    messages[messageIndex].longitude = 0;
-    messages[messageIndex].latitude = 0;
-
-    if (result.containsKey("message")) {
-      JsonObject message = result["message"];
-      messages[messageIndex].type = F("message");
-      messages[messageIndex].from_id = message["from"]["id"].as<String>();
-      messages[messageIndex].from_name = message["from"]["first_name"].as<String>();
-
-      messages[messageIndex].date = message["date"].as<String>();
-      messages[messageIndex].chat_id = message["chat"]["id"].as<String>();
-      messages[messageIndex].chat_title = message["chat"]["title"].as<String>();
-
-      if (message.containsKey("text")) {
-        messages[messageIndex].text = message["text"].as<String>();
-
-      } else if (message.containsKey("location")) {
-        messages[messageIndex].longitude = message["location"]["longitude"].as<float>();
-        messages[messageIndex].latitude = message["location"]["latitude"].as<float>();
-      }
-    } else if (result.containsKey("channel_post")) {
-      JsonObject message = result["channel_post"];
-      messages[messageIndex].type = F("channel_post");
-
-      messages[messageIndex].text = message["text"].as<String>();
-      messages[messageIndex].date = message["date"].as<String>();
-      messages[messageIndex].chat_id = message["chat"]["id"].as<String>();
-      messages[messageIndex].chat_title = message["chat"]["title"].as<String>();
-
-    } else if (result.containsKey("callback_query")) {
-      JsonObject message = result["callback_query"];
-      messages[messageIndex].type = F("callback_query");
-      messages[messageIndex].from_id = message["from"]["id"].as<String>();
-      messages[messageIndex].from_name = message["from"]["first_name"].as<String>();
-
-      messages[messageIndex].text = message["data"].as<String>();
-      messages[messageIndex].date = message["date"].as<String>();
-      messages[messageIndex].chat_id = message["message"]["chat"]["id"].as<String>();
-      messages[messageIndex].chat_title = F("");
-    } else if (result.containsKey("edited_message")) {
-      JsonObject message = result["edited_message"];
-      messages[messageIndex].type = F("edited_message");
-      messages[messageIndex].from_id = message["from"]["id"].as<String>();
-      messages[messageIndex].from_name = message["from"]["first_name"].as<String>();
-
-      messages[messageIndex].date = message["date"].as<String>();
-      messages[messageIndex].chat_id = message["chat"]["id"].as<String>();
-      messages[messageIndex].chat_title = message["chat"]["title"].as<String>();
-
-      if (message.containsKey("text")) {
-        messages[messageIndex].text = message["text"].as<String>();
-
-      } else if (message.containsKey("location")) {
-        messages[messageIndex].longitude = message["location"]["longitude"].as<float>();
-        messages[messageIndex].latitude = message["location"]["latitude"].as<float>();
-      }
-    }
-
-    return true;
-  }
-  return false;
-}
-
 
 /***************************************************************
  * GetUpdates - function to receive messages from telegram *

@@ -13,6 +13,7 @@
 
 /* General */
 #define DEBUG           true
+#define SERIAL_BAUDRATE 115200
 
 /* Telegram */
 #define CHECK_MSG_DELAY 1800000
@@ -125,9 +126,9 @@ void logger(String message, bool endLine) {
     }
 }
 
-unsigned long getMillis() {
+/*unsigned long getMillis() {
     return esp_timer_get_time() / 1000;
-}
+}*/
 
 bool getConfig() {
     File configFile = SPIFFS.open(configFilePath, FILE_READ);
@@ -494,11 +495,13 @@ void serverConfig() {
             }
             else if (json["action"] == "restart") {
                 sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Restart in progress\"}", action.as<char *>());
-                restartRequested = getMillis();
+                //restartRequested = getMillis();
+                restartRequested = millis();
             }
             else if (json["action"] == "reset") {
                 sprintf(response, "{\"code\": \"200\", \"actionCalled\": \"%s\", \"payload\": \"Reset in progress\"}", action.as<char *>());
-                resetRequested = getMillis();
+                //resetRequested = getMillis();
+                resetRequested = millis();
             }
             else {
                 sprintf(response, "{\"code\": \"404\", \"payload\": \"Action %s not found !\"}", action.as<char *>());
@@ -582,7 +585,7 @@ void readMessage() {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(SERIAL_BAUDRATE);
     logger(F("Start program !"));
 
     if (!SPIFFS.begin(true)) {
@@ -695,13 +698,15 @@ void loop() {
         }
 
         if (restartRequested != 0) {
-            if (getMillis() - restartRequested >= 5000 ) {
+            //if (getMillis() - restartRequested >= 5000 ) {
+            if (millis() - restartRequested >= 5000 ) {
                 restart();
             }
         }
 
         if (resetRequested != 0) {
-            if (getMillis() - resetRequested >= 5000) {
+            //if (getMillis() - resetRequested >= 5000) {
+            if (millis() - resetRequested >= 5000) {
                 resetConfig();
             }
         }
@@ -711,8 +716,10 @@ void loop() {
             readMessage();
         }
 
-        if (getMillis() > telegramBotLasttime + 1800000)  {
-            telegramBotLasttime = getMillis();
+        //if (getMillis() > telegramBotLasttime + CHECK_MSG_DELAY)  {
+        if (millis() > telegramBotLasttime + CHECK_MSG_DELAY)  {
+            //telegramBotLasttime = getMillis();
+            telegramBotLasttime = millis();
             logger(F("Checking for messages.. "));
             int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
