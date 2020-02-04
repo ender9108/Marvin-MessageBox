@@ -5,9 +5,12 @@
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <UniversalTelegramBot.h>
+#include <Adafruit_NeoPixel.h>
+#include "SPI.h"
+#include "TFT_eSPI.h"
 
-#define MQTT_ENABLE false
-#define OTA_ENABLE false
+#define MQTT_ENABLE true
+#define OTA_ENABLE true
 
 #if MQTT_ENABLE == true
 // @todo See large message method in exemple
@@ -42,6 +45,7 @@ PubSubClient mqttClient;
 #endif
 Config config;
 AsyncWebServer server(80);
+TFT_eSPI screen = TFT_eSPI();
 
 #if MQTT_ENABLE == true
 const char *configFilePath = "/config.json";
@@ -547,6 +551,9 @@ void setup() {
 
     ArduinoOTA.begin();
     #endif
+
+    screen.init();
+    screen.setRotation(1);
 }
 
 void loop() {
