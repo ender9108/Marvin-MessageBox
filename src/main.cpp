@@ -306,9 +306,9 @@ void handleHome() {
     String content = "";
 
     #if MQTT_ENABLE == true
-        char *indexFile = "index.html";
+        String indexFile = "index.html";
     #else
-        char *indexFile = "index_cc.html";
+        String indexFile = "index_cc.html";
     #endif
 
     File file = SPIFFS.open(indexFile, FILE_READ);
@@ -350,7 +350,6 @@ void handleRestart() {
     if (!file) {
         logger("Failed to open file \"restart.html\".");
         server.send(500, "text/plain", "Internal error");
-        return false;
     } else {
         content = file.readString();
         content.replace("%TITLE%", String(appName));
@@ -390,7 +389,7 @@ void handleNotFound() {
 
 void serverConfig() {
     server.on("/", handleHome);
-    server.on("/save", handleSave);
+    //server.on("/save", handleSave);
     server.on("/restart", handleRestart);
     server.on("/bootstrap.min.css", handleCss);
     server.onNotFound(handleNotFound);
@@ -430,6 +429,10 @@ void serverConfig() {
         memset(response, 0, sizeof(response));
     }
 #endif
+
+void handleNewMessages(int numNewMessages) {
+
+}
 
 void setup() {
     Serial.begin(115200);
