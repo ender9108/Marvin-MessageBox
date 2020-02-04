@@ -53,12 +53,6 @@ bool UniversalTelegramBot::checkForOkResponse(String response) {
   return false;
 }
 
-#ifdef HAL_ESP32_HAL_H_
-unsigned long UniversalTelegramBot::getMillis() {
-    return esp_timer_get_time() / 1000;
-}
-#endif
-
 bool UniversalTelegramBot::sendSimpleMessage(String chat_id, String text,
                                              String parse_mode) {
   bool sent = false;
@@ -66,19 +60,11 @@ bool UniversalTelegramBot::sendSimpleMessage(String chat_id, String text,
   if (_debug)
     Serial.println(F("SEND Simple Message"));
 
-  #ifdef HAL_ESP32_HAL_H_
-  long sttime = getMillis();
-  #else
   long sttime = millis();
-  #endif
 
   if (text != "") {
     // loop for a while to send the message
-    #ifdef HAL_ESP32_HAL_H_
-    while (getMillis() < sttime + 8000) {
-    #else
     while (millis() < sttime + 8000) {
-    #endif
       String command = "bot" + _token + "/sendMessage?chat_id=" + chat_id +
                        "&text=" + text + "&parse_mode=" + parse_mode;
       String response = sendGetToTelegram(command);
@@ -100,19 +86,11 @@ bool UniversalTelegramBot::sendChatAction(String chat_id, String text) {
   if (_debug)
     Serial.println(F("SEND Chat Action Message"));
 
-  #ifdef HAL_ESP32_HAL_H_
-  long sttime = getMillis();
-  #else
   long sttime = millis();
-  #endif
 
   if (text != "") {
     // loop for a while to send the message
-    #ifdef HAL_ESP32_HAL_H_
-    while (getMillis() < sttime + 8000) {
-    #else
     while (millis() < sttime + 8000) {
-    #endif
       String command = "bot" + _token + "/sendChatAction?chat_id=" + chat_id +
                        "&action=" + text;
       String response = sendGetToTelegram(command);
@@ -154,21 +132,12 @@ String UniversalTelegramBot::sendGetToTelegram(String command) {
     //char c;
     int ch_count = 0;
     client->println("GET /" + command);
-
-    #ifdef HAL_ESP32_HAL_H_
-    now = getMillis();
-    #else
     now = millis();
-    #endif
 
     avail = false;
 
     // loop for a while to send the message
-    #ifdef HAL_ESP32_HAL_H_
-    while (getMillis() - now < longPoll * 1000 + waitForResponse) {
-    #else
     while (millis() - now < longPoll * 1000 + waitForResponse) {
-    #endif
       while (client->available()) {
         char c = client->read();
         // Serial.write(c);
@@ -465,72 +434,6 @@ String UniversalTelegramBot::sendPostPhoto(JsonObject payload) {
   closeClient();
   return response;
 }
-/* ***** START UPDATE JSON ***** */
-bool UniversalTelegramBot::sendPostMessage(JsonObject payload) {
-
-  bool sent = false;
-  if (_debug)
-    Serial.println(F("SEND Post Message"));
-  long sttime = millis();
-
-  if (payload.containsKey("text")) {
-    while (millis() < sttime + 8000) { // loop for a while to send the message
-      String command = "bot" + _token + "/sendMessage";
-      String response = sendPostToTelegram(command, payload);
-      if (_debug)
-        Serial.println(response);
-      sent = checkForOkResponse(response);
-      if (sent) {
-        break;
-      }
-    }
-  }
-
-  closeClient();
-  return sent;
-}
-
-bool UniversalTelegramBot::sendSimpleMessage(String chat_id, String text,
-                                             String parse_mode) {
-  bool sent = false;
-  if (_debug)
-    Serial.println(F("SEND Simple Message"));
-  long sttime = millis();
-
-  if (text != "") {
-    while (millis() < sttime + 8000) { // loop for a while to send the message
-      String command = "bot" + _token + "/sendMessage?chat_id=" + chat_id +
-                       "&text=" + text + "&parse_mode=" + parse_mode;
-      String response = sendGetToTelegram(command);
-      if (_debug) {
-        Serial.println(response);
-      }
-
-      sent = checkForOkResponse(response);
-      if (sent) {
-        break;
-      }
-    }
-  }
-  closeClient();
-  return sent;
-}
-
-bool UniversalTelegramBot::sendMessage(String chat_id, String text,
-                                       String parse_mode) {
-  DynamicJsonDocument root(1024);
-
-  root["chat_id"] = chat_id;
-  root["text"] = text;
-
-  if (parse_mode != "") {
-    root["parse_mode"] = parse_mode;
-  }
-
-  JsonObject payload = root.to<JsonObject>();
-
-  return sendPostMessage(payload);
-}
 
 bool UniversalTelegramBot::processResult(JsonObject result, int messageIndex) {
   int update_id = result["update_id"];
@@ -605,131 +508,6 @@ bool UniversalTelegramBot::processResult(JsonObject result, int messageIndex) {
   return false;
 }
 
-bool UniversalTelegramBot::sendMessageWithReplyKeyboard(
-    String chat_id, String text, String parse_mode, String keyboard,
-    bool resize, bool oneTime, bool selective) {
-
-  DynamicJsonDocument root(1024);
-
-  root["chat_id"] = chat_id;
-  root["text"] = text;
-
-  if (parse_mode != "") {
-    root["parse_mode"] = parse_mode;
-  }
-
-  JsonObject replyMarkup = root.createNestedObject("reply_markup");
-
-  // Reply keyboard is an array of arrays.
-  // Outer array represents rows
-  // Inner arrays represents columns
-  // This example "ledon" and "ledoff" are two buttons on the top row
-  // and "status is a single button on the next row"
-
-  DynamicJsonDocument keyboardBuffer(1024);
-  deserializeJson(keyboardBuffer, replyMarkup["keyboard"]);
-
-  // Telegram defaults these values to false, so to decrease the size of the
-  // payload we will only send them if needed
-  if (resize) {
-    replyMarkup["resize_keyboard"] = resize;
-  }
-
-  if (oneTime) {
-    replyMarkup["one_time_keyboard"] = oneTime;
-  }
-
-  if (selective) {
-    replyMarkup["selective"] = selective;
-  }
-
-  JsonObject payload = root.to<JsonObject>()
-
-  return sendPostMessage(payload);
-}
-
-bool UniversalTelegramBot::sendMessageWithInlineKeyboard(String chat_id,
-                                                         String text,
-                                                         String parse_mode,
-                                                         String keyboard) {
-  DynamicJsonDocument root(1024);
-
-  root["chat_id"] = chat_id;
-  root["text"] = text;
-
-  if (parse_mode != "") {
-    root["parse_mode"] = parse_mode;
-  }
-
-  JsonObject replyMarkup = root.createNestedObject("reply_markup");
-
-  DynamicJsonDocument keyboardBuffer(1024);
-  deserializeJson(keyboardBuffer, replyMarkup["keyboard"]);
-
-  JsonObject payload = root.to<JsonObject>();
-
-  return sendPostMessage(payload);
-}
-
-String UniversalTelegramBot::sendPhoto(String chat_id, String photo,
-                                       String caption,
-                                       bool disable_notification,
-                                       int reply_to_message_id,
-                                       String keyboard) {
-  DynamicJsonDocument root(1024);
-
-  root["chat_id"] = chat_id;
-  root["photo"] = photo;
-
-  if (caption) {
-    root["caption"] = caption;
-  }
-
-  if (disable_notification) {
-    root["disable_notification"] = disable_notification;
-  }
-
-  if (reply_to_message_id && reply_to_message_id != 0) {
-    root["reply_to_message_id"] = reply_to_message_id;
-  }
-
-  if (keyboard) {
-    JsonObject replyMarkup = root.createNestedObject("reply_markup");
-
-    DynamicJsonDocument keyboardBuffer(1024);
-    deserializeJson(keyboardBuffer, replyMarkup["keyboard"]);
-  }
-
-  JsonObject payload = root.to<JsonObject>();
-
-  return sendPostPhoto(payload);
-}
-
-bool UniversalTelegramBot::getMe() {
-  String command = "bot" + _token + "/getMe";
-  String response = sendGetToTelegram(command); // receive reply from telegram.org
-
-  DynamicJsonDocument root(1024);
-  auto error = deserializeJson(root, response);
-
-  closeClient();
-
-  if (error) {
-    Serial.print(F("deserializeJson() failed with code "));
-    Serial.println(error.c_str());
-  } else {
-    if (root.containsKey("result")) {
-      String _name = root["result"]["first_name"];
-      String _username = root["result"]["username"];
-      name = _name;
-      userName = _username;
-      return true;
-    }
-  }
-
-  return false;
-}
-/* ***** END UPDATE JSON ***** */
 
 /***************************************************************
  * GetUpdates - function to receive messages from telegram *
