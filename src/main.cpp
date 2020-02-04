@@ -5,12 +5,38 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 #include <UniversalTelegramBot.h>
-#include <Adafruit_NeoPixel.h>
-#include "SPI.h"
-#include "TFT_eSPI.h"
 
-#define MQTT_ENABLE true
-#define OTA_ENABLE true
+/* Conditional compilation */
+#define MQTT_ENABLE     false
+#define OTA_ENABLE      false
+#define SCREEN_TYPE     oled
+
+/* General */
+#define DEBUG           true
+
+/* Telegram */
+#define CHECK_MSG_DELAY 1800000
+
+/* Leds pin */
+#define LED_1_PIN       10
+#define LED_2_PIN       11
+#define LED_3_PIN       12
+#define LED_4_PIN       13
+
+/* Switch pin */
+#define SWITCH_PIN      14
+
+#if SCREEN_TYPE == oled
+    #define SCREEN_SCL_PIN  22
+    #define SCREEN_SDA_PIN  21
+    #include <SPI.h>
+    #include <Wire.h>
+    #include <Adafruit_GFX.h>
+    #include <Adafruit_SSD1306.h>
+#elif SCREEN_TYPE == tft
+    #include "SPI.h"
+    #include "TFT_eSPI.h"
+#endif
 
 #if MQTT_ENABLE == true
     // @todo See large message method in exemple
@@ -39,15 +65,11 @@ struct Config {
     char uuid[64] = "";
 };
 
-WiFiClientSecure wifiClient;
-
-#if MQTT_ENABLE == true
-    PubSubClient mqttClient;
-#endif
-
-Config config;
-WebServer server(80);
-TFT_eSPI screen = TFT_eSPI();
+struct LastMessage {
+    String chatId = "";
+    String name = "";
+    String message = "";
+};
 
 #if MQTT_ENABLE == true
     const char *configFilePath = "/config.json";
@@ -56,7 +78,6 @@ TFT_eSPI screen = TFT_eSPI();
     const char *configFilePath = "/config_cc.json";
 #endif
 
-const bool debug = true;
 const char *wifiApSsid = "message-box-wifi-ssid";
 const char *wifiApPassw = "message-box-wifi-passw";
 const char *appName = "MessageBox";
@@ -66,9 +87,25 @@ const char *telegramToken = "***** TOKEN *****";
     const char *otaPasswordHash = "***** MD5 password *****";
 #endif
 
+WiFiClientSecure wifiClient;
+
+#if MQTT_ENABLE == true
+    PubSubClient mqttClient;
+#endif
+
+Config config;
+LastMessage lastMessage;
+WebServer server(80);
+UniversalTelegramBot bot(telegramToken, wifiClient);
+
+#if SCREEN_TYPE == oled
+    //
+#elif SCREEN_TYPE == tft
+    TFT_eSPI screen = TFT_eSPI();
+#endif
+
 bool wifiConnected = false;
 bool startApp = false;
-int telegramBotMtbs = 1000;
 long telegramBotLasttime; 
 String errorMessage = "";
 
@@ -78,10 +115,8 @@ String errorMessage = "";
     unsigned long resetRequested = 0;
 #endif
 
-UniversalTelegramBot bot(telegramToken, wifiClient);
-
 void logger(String message, bool endLine) {
-    if (true == debug) {
+    if (true == DEBUG) {
         if (true == endLine) {
             Serial.println(message);
         } else {
@@ -430,8 +465,62 @@ void serverConfig() {
     }
 #endif
 
-void handleNewMessages(int numNewMessages) {
+void notification(bool turnOn) {
+    if (true == turnOn) {
+        digitalWrite(LED_1_PIN, HIGH);
+        digitalWrite(LED_2_PIN, HIGH);
+        digitalWrite(LED_3_PIN, HIGH);
+        digitalWrite(LED_4_PIN, HIGH);
+    } else {
+        digitalWrite(LED_1_PIN, LOW);
+        digitalWrite(LED_2_PIN, LOW);
+        digitalWrite(LED_3_PIN, LOW);
+        digitalWrite(LED_4_PIN, LOW);
+    }
+}
 
+void handleNewMessages(int numNewMessages) {
+    for (int i=0; i<numNewMessages; i++) {
+        String chatId = String(bot.messages[i].chat_id);
+        String text = bot.messages[i].text;
+        String fromName = bot.messages[i].from_name;
+
+        if (fromName == "") {
+            fromName = "Guest";
+        }
+
+        if (text.indexOf("/message") == 0) {
+            notification(true);
+            text.replace("/message", "");
+
+            lastMessage.chatId = chatId;
+            lastMessage.name = fromName;
+            lastMessage.message = text;
+
+            bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture...", "");
+        }
+
+        if (text == "/start") {
+            String welcome = "Welcome to MessageBox, " + fromName + ".\n";
+            welcome += "/message [MY_TEXT] : to send message in this box !\n";
+            bot.sendSimpleMessage(chatId, welcome, "Markdown");
+        }
+  }
+}
+
+void readMessage() {
+    if (lastTelegramMessage.trim() == "") {
+        // Display "Aucun message reçu";
+    } else {
+        // Display message on screen
+
+        bot.sendSimpleMessage(lastTelegramChatId, "Message lu !", "");
+        notification(false);
+        
+        lastMessage.chatId = "";
+        lastMessage.name = "";
+        lastMessage.message = "";
+    }
 }
 
 void setup() {
@@ -466,14 +555,14 @@ void setup() {
         startApp = false;
     } 
     #if MQTT_ENABLE == true
-    else if (
-        true == wifiConnected &&
-        true == config.mqttEnable && 
-        false == mqttConnected
-    ) {
-        errorMessage = "Mqtt connection error to " + String(config.mqttHost);
-        startApp = false;
-    }
+        else if (
+            true == wifiConnected &&
+            true == config.mqttEnable && 
+            false == mqttConnected
+        ) {
+            errorMessage = "Mqtt connection error to " + String(config.mqttHost);
+            startApp = false;
+        }
     #endif
     else {
         startApp = true;
@@ -487,51 +576,53 @@ void setup() {
         logger(F(")"));
         serverConfig();
     } else {
+        pinMode(LED_1_PIN, OUTPUT);
+        pinMode(LED_2_PIN, OUTPUT);
+        pinMode(LED_3_PIN, OUTPUT);
+        pinMode(LED_4_PIN, OUTPUT);
+
+        notification(false);
+
+        pinMode(SWITCH_PIN, INPUT);
+
+        screen.init();
+        screen.setRotation(1);
+        screen.fillScreen(TFT_BLACK);
+        screen.setTextColor(TFT_WHITE, TFT_BLACK);
+        screen.setTextSize(1);
+
         logger(F("App started !"));
     }
 
     #if OTA_ENABLE == true
-    // Port defaults to 3232
-    // ArduinoOTA.setPort(3232);
+        ArduinoOTA.setHostname(appName);
+        ArduinoOTA.setPasswordHash(otaPasswordHash);
 
-    // Hostname defaults to esp3232-[MAC]
-    ArduinoOTA.setHostname(appName);
+        ArduinoOTA.onStart([]() {
+            String type;
+            if (ArduinoOTA.getCommand() == U_FLASH) {
+                type = "sketch";
+            } else { // U_SPIFFS
+                type = "filesystem";
+            }
 
-    // No authentication by default
-    // ArduinoOTA.setPassword("admin");
+            SPIFFS.end();
+            logger("Start updating " + type);
+        }).onEnd([]() {
+            logger(F("\nEnd"));
+        }).onProgress([](unsigned int progress, unsigned int total) {
+            Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+        }).onError([](ota_error_t error) {
+            Serial.printf("Error[%u]: ", error);
+            if (error == OTA_AUTH_ERROR) logger(F("Auth Failed"));
+            else if (error == OTA_BEGIN_ERROR) logger(F("Begin Failed"));
+            else if (error == OTA_CONNECT_ERROR) logger(F("Connect Failed"));
+            else if (error == OTA_RECEIVE_ERROR) logger(F("Receive Failed"));
+            else if (error == OTA_END_ERROR) logger(F("End Failed"));
+        });
 
-    // Password can be set with it's md5 value as well
-    // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-    ArduinoOTA.setPasswordHash(otaPasswordHash);
-
-    ArduinoOTA.onStart([]() {
-        String type;
-        if (ArduinoOTA.getCommand() == U_FLASH) {
-            type = "sketch";
-        } else { // U_SPIFFS
-            type = "filesystem";
-        }
-
-        SPIFFS.end();
-        logger("Start updating " + type);
-    }).onEnd([]() {
-        logger(F("\nEnd"));
-    }).onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    }).onError([](ota_error_t error) {
-        Serial.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) logger(F("Auth Failed"));
-        else if (error == OTA_BEGIN_ERROR) logger(F("Begin Failed"));
-        else if (error == OTA_CONNECT_ERROR) logger(F("Connect Failed"));
-        else if (error == OTA_RECEIVE_ERROR) logger(F("Receive Failed"));
-        else if (error == OTA_END_ERROR) logger(F("End Failed"));
-    });
-
-    ArduinoOTA.begin();
+        ArduinoOTA.begin();
     #endif
-
-    screen.init();
-    screen.setRotation(1);
 }
 
 void loop() {
@@ -558,7 +649,11 @@ void loop() {
         }
         #endif
 
-        if (getMillis() > telegramBotLasttime + telegramBotMtbs)  {
+        if (digitalRead(SWITCH_PIN) == HIGH) {
+            readMessage();
+        }
+
+        if (getMillis() > telegramBotLasttime + 1800000)  {
             telegramBotLasttime = getMillis();
             logger(F("Checking for messages.. "));
             int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
@@ -567,11 +662,11 @@ void loop() {
                 handleNewMessages(numNewMessages);
             }
         }
+
+        #if OTA_ENABLE == true
+            ArduinoOTA.handle();
+        #endif
     } else {
         server.handleClient();
     }
-
-    #if OTA_ENABLE == true
-    ArduinoOTA.handle();
-    #endif
 }

@@ -53,8 +53,7 @@ bool UniversalTelegramBot::checkForOkResponse(String response) {
   return false;
 }
 
-bool UniversalTelegramBot::sendSimpleMessage(String chat_id, String text,
-                                             String parse_mode) {
+bool UniversalTelegramBot::sendSimpleMessage(String chat_id, String text, String parse_mode) {
   bool sent = false;
 
   if (_debug)
