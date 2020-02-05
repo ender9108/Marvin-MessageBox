@@ -11,7 +11,7 @@ const char *wifiApSsid      = "MarvinMessageBoxSsid";
 const char *wifiApPassw     = "MarvinMessageBox";
 const char *appName         = "MessageBox";
 const char *hostname        = "marvin-messagebox.local";
-const char *telegramToken   = "885625605:AAEKPq1UljVYaiQ9CdyfIOtE15G8oKTy3v4";
+const char *telegramToken   = "*** TOKEN ***";
 
 #if OTA_ENABLE == true
     const char *otaPasswordHash = "***** MD5 password *****";
