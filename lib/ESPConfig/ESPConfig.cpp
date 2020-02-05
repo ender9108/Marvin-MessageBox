@@ -66,7 +66,7 @@ bool getConfig(const char *configPath, Config config) {
     strlcpy(config.wifiPassword, json["wifiPassword"], sizeof(config.wifiPassword));
 
     strlcpy(config.mqttHost, json["mqttHost"], sizeof(config.mqttHost));
-    config.mqttPort = json["mqttPort"] | 1883;
+    strlcpy(config.mqttPort, json["mqttPort"], sizeof(config.mqttPort));
     strlcpy(config.mqttUsername, json["mqttUsername"], sizeof(config.mqttUsername));
     strlcpy(config.mqttPassword, json["mqttPassword"], sizeof(config.mqttPassword));
     strlcpy(config.mqttPublishChannel, json["mqttPublishChannel"], sizeof(config.mqttPublishChannel));
@@ -83,7 +83,7 @@ bool setConfig(const char *configPath, Config newConfig) {
     json["wifiSsid"] = String(newConfig.wifiSsid);
     json["wifiPassword"] = String(newConfig.wifiPassword);
     json["mqttHost"] = String(newConfig.mqttHost);
-    json["mqttPort"] = newConfig.mqttPort;
+    json["mqttPort"] = String(newConfig.mqttPort);
     json["mqttUsername"] = String(newConfig.mqttUsername);
     json["mqttPassword"] = String(newConfig.mqttPassword);
     json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);

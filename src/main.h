@@ -13,6 +13,7 @@
 /* Conditional compilation */
 #define MQTT_ENABLE     false
 #define OTA_ENABLE      false
+#define SCREEN_TYPE     oled
 
 /* General */
 #define SERIAL_BAUDRATE 115200

@@ -92,9 +92,9 @@ void restart() {
         char response[512];
         
         if (json.containsKey("action")) {
-            JsonVariant action = json["action"];
+            //JsonVariant action = json["action"];
 
-            if (json["action"] == "ping") {
+            /*if (json["action"] == "ping") {
                 sprintf(response, "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"pong\"}", action.as<char *>());
             }
             else if (json["action"] == "restart") {
@@ -109,7 +109,7 @@ void restart() {
                 sprintf(response, "{\"code\":\"404\",\"uuid\":\""+String(config.uuid)+"\",\"payload\":\"Action %s not found !\"}", action.as<char *>());
             }
 
-            mqttClient.publish(config.mqttPublishChannel, response);
+            mqttClient.publish(config.mqttPublishChannel, response);*/
         }
 
         memset(response, 0, sizeof(response));
@@ -180,9 +180,11 @@ void handleNewMessages(int numNewMessages) {
             logger(F("Message waiting to be read"));
             bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture.", "");
             #if MQTT_ENABLE == true
+            char response[512];
+            sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
             mqttClient.publish(
                 config.mqttPublishChannel, 
-                "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"readMessage\",\"payload\":\"Message reçu. En attente de lecture.\"}"
+                response
             );
             #endif
         }
@@ -210,9 +212,11 @@ void readMessage() {
         bot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
         tickerManager(false);
         #if MQTT_ENABLE == true
+        char response[512];
+        sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
         mqttClient.publish(
             config.mqttPublishChannel, 
-            "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}"
+            response
         );
         #endif
         
@@ -269,12 +273,12 @@ void setup() {
     #endif
     wm.setAPCallback(wifiConfigModeCallback);
 
-    IPAddress _ip(192,168,4,2);
+    /*IPAddress _ip(192,168,4,2);
     IPAddress _gw(192,168,4,1);
     IPAddress _sn(255,255,255,255);
 
     wm.setSTAStaticIPConfig(_ip, _gw, _sn);
-    wm.setHostname(hostname);
+    wm.setHostname(hostname);*/
     wm.setClass("invert");
 
     #if MQTT_ENABLE == true
@@ -312,7 +316,7 @@ void setup() {
 
         if (wifiShouldSaveConfig) {
             setConfig(configFilePath, config);
-            shouldSaveConfig = false;
+            wifiShouldSaveConfig = false;
         }
     #endif
 
@@ -323,7 +327,7 @@ void setup() {
 
     #if MQTT_ENABLE == true
         mqttClient.setClient(wifiClient);
-        mqttClient.setServer(config.mqttHost, config.mqttPort);
+        mqttClient.setServer(config.mqttHost, atoi(config.mqttPort));
         mqttClient.setCallback(callback);
         mqttConnected = mqttConnect();
 
