@@ -1,7 +1,4 @@
 {
-    "wifiSsid": "",
-    "wifiPassword": "",
-    "mqttEnable": true,
     "mqttHost": "",
     "mqttPort": 1883,
     "mqttUsername": "",

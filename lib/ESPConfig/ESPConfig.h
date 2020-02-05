@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Adruino.h>
 #include <ESPTools.h>
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
