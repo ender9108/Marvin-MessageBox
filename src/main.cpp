@@ -14,7 +14,7 @@ const char *hostname        = "marvin-messagebox.local";
 const char *telegramToken   = "***** TOKEN *****";
 
 #if OTA_ENABLE == true
-const char *otaPasswordHash = "***** MD5 password *****";
+    const char *otaPasswordHash = "***** MD5 password *****";
 #endif
 
 WiFiClientSecure wifiClient;
@@ -134,10 +134,7 @@ void blinkLed(int repeat, int time) {
 }
 
 void tickerBlinkLed() {
-    digitalWrite(LED_1_PIN, !digitalRead(LED_1_PIN));
-    digitalWrite(LED_2_PIN, !digitalRead(LED_2_PIN));
-    digitalWrite(LED_3_PIN, !digitalRead(LED_3_PIN));
-    digitalWrite(LED_4_PIN, !digitalRead(LED_4_PIN));
+    blinkLed();
 }
 
 void shutdownLed() {
