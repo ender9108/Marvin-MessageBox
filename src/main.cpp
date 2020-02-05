@@ -16,7 +16,8 @@
 #define SERIAL_BAUDRATE 115200
 
 /* Telegram */
-#define CHECK_MSG_DELAY 1800000
+//#define CHECK_MSG_DELAY 1800000
+#define CHECK_MSG_DELAY 10000
 
 /* Leds pin */
 #define LED_1_PIN       10
@@ -28,15 +29,15 @@
 #define SWITCH_PIN      14
 
 #if SCREEN_TYPE == oled
-    #define SCREEN_SCL_PIN  22
+    /*#define SCREEN_SCL_PIN  22
     #define SCREEN_SDA_PIN  21
     #include <SPI.h>
     #include <Wire.h>
     #include <Adafruit_GFX.h>
-    #include <Adafruit_SSD1306.h>
+    #include <Adafruit_SSD1306.h>*/
 #elif SCREEN_TYPE == tft
-    #include "SPI.h"
-    #include "TFT_eSPI.h"
+    /*#include "SPI.h"
+    #include "TFT_eSPI.h"*/
 #endif
 
 #if MQTT_ENABLE == true
@@ -82,7 +83,7 @@ struct LastMessage {
 const char *wifiApSsid = "message-box-wifi-ssid";
 const char *wifiApPassw = "message-box-wifi-passw";
 const char *appName = "MessageBox";
-const char *telegramToken = "***** TOKEN *****";
+const char *telegramToken = "885625605:AAEKPq1UljVYaiQ9CdyfIOtE15G8oKTy3v4";
 
 #if OTA_ENABLE == true
     const char *otaPasswordHash = "***** MD5 password *****";
@@ -102,7 +103,7 @@ UniversalTelegramBot bot(telegramToken, wifiClient);
 #if SCREEN_TYPE == oled
     //
 #elif SCREEN_TYPE == tft
-    TFT_eSPI screen = TFT_eSPI();
+    //TFT_eSPI screen = TFT_eSPI();
 #endif
 
 bool wifiConnected = false;
@@ -342,9 +343,9 @@ void handleHome() {
     String content = "";
 
     #if MQTT_ENABLE == true
-        String indexFile = "index.html";
+        char indexFile[] = "/index.html";
     #else
-        String indexFile = "index_cc.html";
+        char indexFile[] = "/index_cc.html";
     #endif
 
     File file = SPIFFS.open(indexFile, FILE_READ);
@@ -357,6 +358,12 @@ void handleHome() {
         content.replace("%TITLE%", String(appName));
         content.replace("%MODULE_NAME%", String(appName));
         content.replace("%ERROR_MESSAGE%", errorMessage);
+
+        if (errorMessage.length() == 0) {
+            content.replace("%ERROR_HIDDEN%", "d-none");
+        } else {
+            content.replace("%ERROR_HIDDEN%", "");
+        }
 
         content.replace("%WIFI_SSID%", String(config.wifiSsid));
         content.replace("%WIFI_PASSWD%", String(config.wifiPassword));
@@ -387,6 +394,11 @@ void handleSave() {
         logger(" : ", false);
         logger(server.arg(i));
     }
+
+    Serial.println(server.hasArg("wifiSsid"));
+    Serial.println(server.hasArg("wifiPassword"));
+    Serial.println(server.arg("wifiSsid"));
+    Serial.println(server.arg("wifiPassword"));
 
     if (!server.hasArg("wifiSsid") || !server.hasArg("wifiPassword")){  
         error = true;
@@ -422,7 +434,7 @@ void handleSave() {
         setConfig(config);
 
         String content = "";
-        File file = SPIFFS.open("restart.html", FILE_READ);
+        File file = SPIFFS.open("/restart.html", FILE_READ);
 
         if (!file) {
             logger("Failed to open file \"restart.html\".");
@@ -443,19 +455,23 @@ void handleSave() {
 
 void handleCss() {
     String content = "";
-    File file = SPIFFS.open("bootstrap.min.css", FILE_READ);
+    File file = SPIFFS.open("/bootstrap.min.css", FILE_READ);
 
     if (!file) {
         logger("Failed to open file \"bootstrap.min.css\".");
         server.send(500, "text/plain", "Internal error");
     } else {
-        server.send(200, "text/html", file.readString());
+        server.send(200, "text/css", file.readString());
     }
+}
+
+void handleFavicon() {
+    server.send(200, "text/html", String(""));
 }
 
 void handleNotFound() {
     String content = "";
-    File file = SPIFFS.open("404.html", FILE_READ);
+    File file = SPIFFS.open("/404.html", FILE_READ);
 
     if (!file) {
         logger("Failed to open file \"404.html\".");
@@ -471,9 +487,10 @@ void handleNotFound() {
 
 void serverConfig() {
     server.on("/", HTTP_GET, handleHome);
-    server.on("/save", HTTP_POST handleSave);
+    server.on("/save", HTTP_POST, handleSave);
     server.on("/restart", HTTP_GET, restart);
     server.on("/bootstrap.min.css", HTTP_GET, handleCss);
+    server.on("/favicon.ico", HTTP_GET, handleFavicon);
     server.onNotFound(handleNotFound);
 
     server.begin();
@@ -546,8 +563,10 @@ void handleNewMessages(int numNewMessages) {
         }
 
         if (text.indexOf("/message") == 0) {
+            logger(F("New message !"));
             notification(true);
             text.replace("/message", "");
+            logger("Content :" + text);
 
             lastMessage.chatId = chatId;
             lastMessage.name = fromName;
@@ -565,15 +584,18 @@ void handleNewMessages(int numNewMessages) {
 
         if (text == "/start") {
             logger(F("Send message to telegram bot (action called : /start)"));
+            // @todo concatenation not working
             String welcome = "Welcome to MessageBox, " + fromName + ".\n";
             welcome += "/message [MY_TEXT] : to send message in this box !\n";
-            bot.sendSimpleMessage(chatId, welcome, "Markdown");
+            bot.sendSimpleMessage(chatId, welcome, "");
         }
   }
 }
 
 void readMessage() {
-    if (lastMessage.message.trim() == "") {
+    lastMessage.message.trim();
+
+    if (lastMessage.message == "") {
         logger(F("No new message"));
         // Display "Pas de nouveau message";
     } else {
@@ -624,7 +646,9 @@ void setup() {
     } // endif true == getConfig()
 
     if (false == wifiConnected) {
-        errorMessage = "Wifi connection error to " + String(config.wifiSsid);
+        if (strlen(config.wifiSsid) > 1) {
+            errorMessage = "Wifi connection error to " + String(config.wifiSsid);
+        }
         startApp = false;
     } 
     #if MQTT_ENABLE == true
@@ -658,11 +682,11 @@ void setup() {
 
         pinMode(SWITCH_PIN, INPUT);
 
-        screen.init();
+        /*screen.init();
         screen.setRotation(1);
         screen.fillScreen(TFT_BLACK);
         screen.setTextColor(TFT_WHITE, TFT_BLACK);
-        screen.setTextSize(1);
+        screen.setTextSize(1);*/
 
         logger(F("App started !"));
     }
@@ -736,7 +760,6 @@ void loop() {
             int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
             if (numNewMessages > 0) {
-                logger(F("New message !"));
                 handleNewMessages(numNewMessages);
             }
         }
