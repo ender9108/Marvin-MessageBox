@@ -133,6 +133,13 @@ void blinkLed(int repeat, int time) {
     }
 }
 
+void tickerBlinkLed() {
+    digitalWrite(LED_1_PIN, !digitalRead(LED_1_PIN));
+    digitalWrite(LED_2_PIN, !digitalRead(LED_2_PIN));
+    digitalWrite(LED_3_PIN, !digitalRead(LED_3_PIN));
+    digitalWrite(LED_4_PIN, !digitalRead(LED_4_PIN));
+}
+
 void shutdownLed() {
     digitalWrite(LED_1_PIN, LOW);
     digitalWrite(LED_2_PIN, LOW);
@@ -144,7 +151,7 @@ void tickerManager(bool start) {
     shutdownLed();
 
     if (true == start) {
-        ticker.attach(1, blinkLed);
+        ticker.attach(1, tickerBlinkLed);
     } else {
         ticker.detach();
     }
@@ -193,7 +200,9 @@ void handleNewMessages(int numNewMessages) {
 }
 
 void readMessage() {
-    if (lastMessage.message.trim() == "") {
+    lastMessage.message.trim();
+
+    if (lastMessage.message == "") {
         logger(F("No new message"));
         // Display "Pas de nouveau message";
     } else {
@@ -225,7 +234,7 @@ void readMessage() {
 
 void wifiConfigModeCallback (WiFiManager *myWiFiManager) {
   logger(F("Entered config mode"));
-  logger(WiFi.softAPIP());
+  logger(WiFi.softAPIP().toString());
 
   tickerManager(true);
 }
@@ -234,12 +243,10 @@ void setup() {
     Serial.begin(SERIAL_BAUDRATE);
     logger(F("Start program !"));
 
-    bool wifiConnected = false;
-
     if (SPIFFS.begin(true)) {
         logger(F("SPIFFS mounted"));
 
-        if (false == getConfig(configFilePath)) {
+        if (false == getConfig(configFilePath, config)) {
             logger(F("An Error has occurred while loading config"));
         }
     } else {
@@ -315,7 +322,7 @@ void setup() {
     tickerManager(false);
 
     logger(F("IP: "), false);
-    logger(WiFi.localIP());
+    logger(WiFi.localIP().toString());
 
     #if MQTT_ENABLE == true
         mqttClient.setClient(wifiClient);
@@ -413,7 +420,7 @@ void loop() {
 
     if (resetRequested != 0) {
         if (millis() - resetRequested >= DURATION_BEFORE_RESET) {
-            resetConfig();
+            resetConfig(configFilePath);
             restart();
         }
     }

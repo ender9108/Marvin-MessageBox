@@ -8,6 +8,7 @@
 #include <Ticker.h>
 #include <ESPTools.h>
 #include <ESPConfig.h>
+#include <WiFiClientSecure.h>
 
 /* Conditional compilation */
 #define MQTT_ENABLE     false

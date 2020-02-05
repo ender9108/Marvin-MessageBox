@@ -1,7 +1,7 @@
 #include <ESPConfig.h>
 
-bool getConfig(char *configPath) {
-    File configFile = SPIFFS.open(configFilePath, FILE_READ);
+bool getConfig(const char *configPath, Config config) {
+    File configFile = SPIFFS.open(configPath, FILE_READ);
 
     if (!configFile) {
         logger("Failed to open config file \"" + String(configPath) + "\".");
@@ -77,7 +77,7 @@ bool getConfig(char *configPath) {
     return true;
 }
 
-bool setConfig(char *configPath, Config newConfig) {
+bool setConfig(const char *configPath, Config newConfig) {
     StaticJsonDocument<512> json;
     
     json["wifiSsid"] = String(newConfig.wifiSsid);
@@ -96,7 +96,7 @@ bool setConfig(char *configPath, Config newConfig) {
 
     json["uuid"] = String(newConfig.uuid);
 
-    File configFile = SPIFFS.open(configFilePath, FILE_WRITE);
+    File configFile = SPIFFS.open(configPath, FILE_WRITE);
     
     if (!configFile) {
         logger(F("Failed to open config file for writing"));
@@ -110,8 +110,8 @@ bool setConfig(char *configPath, Config newConfig) {
     return true;
 }
 
-void resetConfig() {
+void resetConfig(const char *configPath) {
     logger(F("Reset ESP"));
     Config resetConfig;
-    setConfig(resetConfig);
+    setConfig(configPath, resetConfig);
 }

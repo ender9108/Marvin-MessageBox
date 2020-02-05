@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Adruino.h>
-#include <ESPTools.h>
+#include <Arduino.h>
+#include "ESPTools.h"
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 
@@ -25,5 +25,6 @@ struct Config {
     char uuid[64]                   = "";
 };
 
-bool getConfig(char *configPath);
-bool setConfig(char *configPath, Config newConfig);
+bool getConfig(const char *configPath, Config config);
+bool setConfig(const char *configPath, Config newConfig);
+void resetConfig(const char *configPath);
