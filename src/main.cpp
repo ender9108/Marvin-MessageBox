@@ -12,10 +12,6 @@ const char *wifiApPassw     = "MarvinMessageBox";
 const char *appName         = "MessageBox";
 const char *hostname        = "marvin-messagebox.local";
 
-#if OTA_ENABLE == true
-    const char *otaPasswordHash = "5d6c9359a1540edfc2245d8e00457994";
-#endif
-
 WiFiClientSecure wifiClient;
 Ticker ticker;
 
@@ -144,6 +140,11 @@ void handleHome() {
             content.replace("%MQTT_INPUT_HIDDEN%", "");
         }
 
+        if (false == OTA_ENABLE) {
+            content.replace("%OTA_INPUT_HIDDEN%", "d-none");
+        } else {
+            content.replace("%OTA_INPUT_HIDDEN%", "");
+        }
         content.replace("%MQTT_HOST%", String(config.mqttHost));
         content.replace("%MQTT_PORT%", String(config.mqttPort));
         content.replace("%MQTT_USERNAME%", String(config.mqttUsername));
@@ -151,6 +152,7 @@ void handleHome() {
         content.replace("%MQTT_PUB_CHAN%", String(config.mqttPublishChannel));
         content.replace("%MQTT_SUB_CHAN%", String(config.mqttSubscribeChannel));
         content.replace("%TELEGRAM_TOKEN%", String(config.telegramBotToken));
+        content.replace("%OTA_PASSWORD%", String(config.otaPassword));
 
         server.send(200, "text/html", content);
     }
@@ -164,11 +166,6 @@ void handleSave() {
         logger(" : ", false);
         logger(server.arg(i));
     }
-
-    Serial.println(server.hasArg("wifiSsid"));
-    Serial.println(server.hasArg("wifiPassword"));
-    Serial.println(server.arg("wifiSsid"));
-    Serial.println(server.arg("wifiPassword"));
 
     if (!server.hasArg("wifiSsid") || !server.hasArg("wifiPassword")){  
         error = true;
@@ -199,6 +196,7 @@ void handleSave() {
         server.arg("mqttPublishChannel").toCharArray(config.mqttPublishChannel, 128);
         server.arg("mqttSubscribeChannel").toCharArray(config.mqttSubscribeChannel, 128);
         server.arg("telegramBotToken").toCharArray(config.telegramBotToken, 128);
+        server.arg("otaPassword").toCharArray(config.otaPassword, 64);
 
         setConfig(configFilePath, config);
 
@@ -465,7 +463,7 @@ void setup() {
 
     #if OTA_ENABLE == true
         ArduinoOTA.setHostname(appName);
-        ArduinoOTA.setPasswordHash(otaPasswordHash);
+        ArduinoOTA.setPasswordHash(config.otaPassword);
 
         ArduinoOTA.onStart([]() {
             String type;

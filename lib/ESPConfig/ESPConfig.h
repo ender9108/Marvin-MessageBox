@@ -22,6 +22,7 @@ struct Config {
     char mqttPublishChannel[128]    = "device/to/marvin";
     char mqttSubscribeChannel[128]  = "marvin/to/device";
     char telegramBotToken[128]      = "";
+    char otaPassword[64]            = "";
     char uuid[64]                   = "";
 };
 

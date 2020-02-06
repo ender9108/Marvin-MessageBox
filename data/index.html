@@ -36,7 +36,14 @@
                     <label for="telegramBotToken">token</label>
                     <input type="text" class="form-control" id="telegramBotToken" name="telegramBotToken" value="%TELEGRAM_TOKEN%" required>
                 </div>
-            </fieldset class="mt-4">
+            </fieldset>
+            <fieldset class="mt-4 %OTA_INPUT_HIDDEN%">
+                <legend>OTA Updater</legend>
+                <div class="form-group ">
+                    <label for="otaPassword">Password (MD5)</label>
+                    <input type="text" class="form-control" id="otaPassword" name="otaPassword" value="%OTA_PASSWORD%" required>
+                </div>
+            </fieldset>
             <fieldset class="mt-4 %MQTT_INPUT_HIDDEN%">
                 <legend>Mqtt</legend>
                 <div class="form-check mb-4">
