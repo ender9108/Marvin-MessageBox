@@ -15,8 +15,9 @@
 #include <WiFiClientSecure.h>
 
 /* Conditional compilation */
-#define MQTT_ENABLE     false
-#define OTA_ENABLE      false
+#define MQTT_ENABLE     true
+#define OTA_ENABLE      true
+#define SCREEN_TYPE     oled
 
 /* General */
 #define SERIAL_BAUDRATE 115200

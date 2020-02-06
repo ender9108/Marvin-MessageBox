@@ -13,7 +13,7 @@ const char *appName         = "MessageBox";
 const char *hostname        = "marvin-messagebox.local";
 
 #if OTA_ENABLE == true
-    const char *otaPasswordHash = "***** MD5 password *****";
+    const char *otaPasswordHash = "5d6c9359a1540edfc2245d8e00457994";
 #endif
 
 WiFiClientSecure wifiClient;
@@ -45,9 +45,7 @@ unsigned long restartRequested = 0;
 
 #if MQTT_ENABLE == true
     bool mqttConnected = false;
-#endif
 
-#if MQTT_ENABLE == true
     bool mqttConnect() {
         int count = 0;
 
@@ -79,18 +77,42 @@ unsigned long restartRequested = 0;
 
         return false;
     }
+
+    void callback(char* topic, byte* payload, unsigned int length) {
+        StaticJsonDocument<256> json;
+        deserializeJson(json, payload, length);
+
+        char response[512];
+        
+        if (json.containsKey("action")) {
+            JsonVariant action = json["action"];
+
+            if (json["action"] == "ping") {
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"%s\",\"payload\":\"pong\"}", config.uuid, action.as<char*>());
+            }
+            else if (json["action"] == "restart") {
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"%s\",\"payload\":\"Restart in progress\"}", config.uuid, action.as<char*>());
+                restartRequested = millis();
+            }
+            else if (json["action"] == "reset") {
+                sprintf(response, "{\"code\": \"200\",\"uuid\":\"%s\",\"actionCalled\":\"%s\",\"payload\":\"Reset in progress\"}", config.uuid, action.as<char*>());
+                resetRequested = millis();
+            }
+            else {
+                sprintf(response, "{\"code\":\"404\",\"uuid\":\"%s\",\"payload\":\"Action %s not found !\"}", config.uuid, action.as<char*>());
+            }
+
+            mqttClient.publish(config.mqttPublishChannel, response);
+        }
+
+        memset(response, 0, sizeof(response));
+    }
 #endif
 
 void handleHome() {
     String content = "";
 
-    #if MQTT_ENABLE == true
-        char indexFile[] = "/index.html";
-    #else
-        char indexFile[] = "/index_cc.html";
-    #endif
-
-    File file = SPIFFS.open(indexFile, FILE_READ);
+    File file = SPIFFS.open("/index.html", FILE_READ);
 
     if (!file) {
         logger("Failed to open file \"" + String(indexFile) + "\".");
@@ -114,6 +136,12 @@ void handleHome() {
             content.replace("%MQTT_ENABLE%", "checked");
         } else {
             content.replace("%MQTT_ENABLE%", "");
+        }
+
+        if (false == MQTT_ENABLE) {
+            content.replace("%MQTT_INPUT_HIDDEN%", "d-none");
+        } else {
+            content.replace("%MQTT_INPUT_HIDDEN%", "");
         }
 
         content.replace("%MQTT_HOST%", String(config.mqttHost));
@@ -157,22 +185,20 @@ void handleSave() {
     if (false == error) {
         server.arg("wifiSsid").toCharArray(config.wifiSsid, 32);
         server.arg("wifiPassword").toCharArray(config.wifiPassword, 64);
-        #if MQTT_ENABLE == true
-            server.arg("mqttHost").toCharArray(config.mqttHost, 128);
-            config.mqttPort = server.arg("mqttPort").toInt();
+        server.arg("mqttHost").toCharArray(config.mqttHost, 128);
+        config.mqttPort = server.arg("mqttPort").toInt();
 
-            if (server.hasArg("mqttEnable")) {
-                config.mqttEnable = true;
-            } else {
-                config.mqttEnable = false;
-            }
+        if (server.hasArg("mqttEnable")) {
+            config.mqttEnable = true;
+        } else {
+            config.mqttEnable = false;
+        }
 
-            server.arg("mqttUsername").toCharArray(config.mqttUsername, 32);
-            server.arg("mqttPassword").toCharArray(config.mqttPassword, 64);
-            server.arg("mqttPublishChannel").toCharArray(config.mqttPublishChannel, 128);
-            server.arg("mqttSubscribeChannel").toCharArray(config.mqttSubscribeChannel, 128);
-            server.arg("telegramBotToken").toCharArray(config.telegramBotToken, 128);
-        #endif
+        server.arg("mqttUsername").toCharArray(config.mqttUsername, 32);
+        server.arg("mqttPassword").toCharArray(config.mqttPassword, 64);
+        server.arg("mqttPublishChannel").toCharArray(config.mqttPublishChannel, 128);
+        server.arg("mqttSubscribeChannel").toCharArray(config.mqttSubscribeChannel, 128);
+        server.arg("telegramBotToken").toCharArray(config.telegramBotToken, 128);
 
         setConfig(configFilePath, config);
 
@@ -246,38 +272,6 @@ void serverConfig() {
     logger("HTTP server started");
 }
 
-#if MQTT_ENABLE == true
-    void callback(char* topic, byte* payload, unsigned int length) {
-        StaticJsonDocument<256> json;
-        deserializeJson(json, payload, length);
-
-        char response[512];
-        
-        if (json.containsKey("action")) {
-            JsonVariant action = json["action"];
-
-            if (json["action"] == "ping") {
-                sprintf(response, "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"pong\"}", action.as<char *>());
-            }
-            else if (json["action"] == "restart") {
-                sprintf(response, "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"Restart in progress\"}", action.as<char *>());
-                restartRequested = millis();
-            }
-            else if (json["action"] == "reset") {
-                sprintf(response, "{\"code\": \"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"%s\",\"payload\":\"Reset in progress\"}", action.as<char *>());
-                resetRequested = millis();
-            }
-            else {
-                sprintf(response, "{\"code\":\"404\",\"uuid\":\""+String(config.uuid)+"\",\"payload\":\"Action %s not found !\"}", action.as<char *>());
-            }
-
-            mqttClient.publish(config.mqttPublishChannel, response);
-        }
-
-        memset(response, 0, sizeof(response));
-    }
-#endif
-
 void blinkLed(int repeat, int time) {
     if (repeat == 0) {
         digitalWrite(LED_1_PIN, !digitalRead(LED_1_PIN));
@@ -349,10 +343,9 @@ void handleNewMessages(int numNewMessages) {
             logger(F("Message waiting to be read"));
             bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture.", "");
             #if MQTT_ENABLE == true
-            mqttClient.publish(
-                config.mqttPublishChannel, 
-                "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"readMessage\",\"payload\":\"Message reçu. En attente de lecture.\"}"
-            );
+                char response[256];
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"newMessageReceived\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
+                mqttClient.publish(config.mqttPublishChannel, response);
             #endif
         }
 
@@ -381,10 +374,9 @@ void readMessage() {
         tickerManager(false);
         
         #if MQTT_ENABLE == true
-        mqttClient.publish(
-            config.mqttPublishChannel, 
-            "{\"code\":\"200\",\"uuid\":\""+String(config.uuid)+"\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}"
-        );
+            char response[256];
+            sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
+            mqttClient.publish(config.mqttPublishChannel, response);
         #endif
         
         lastMessage.chatId = "";
@@ -444,6 +436,7 @@ void setup() {
         tickerManager(true);
         WiFi.mode(WIFI_AP);
         WiFi.softAP(wifiApSsid, wifiApPassw);
+        WiFi.setHostname(hostname);
         logger(F("WiFi AP is ready (IP : "), false); 
         logger(WiFi.softAPIP().toString(), false);
         logger(F(")"));
@@ -538,7 +531,7 @@ void loop() {
             }
         }
 
-        if (digitalRead(BTN_RESTART_PIN) == LOW){                              //extinction de la led 1 si le bouton est relaché
+        if (digitalRead(BTN_RESTART_PIN) == LOW) {
             previousResetBtnState = LOW;
             resetBtnDuration = 0;
             resetRequested = 0;
