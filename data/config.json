@@ -5,5 +5,7 @@
     "mqttPassword": "",
     "mqttPublishChannel": "marvin/device/action",
     "mqttSubscribeChannel": "marvin/device/listen",
+    "telegramBotToken": "",
+    "otaPassword": "",
     "uuid": ""
 }

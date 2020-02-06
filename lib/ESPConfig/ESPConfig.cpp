@@ -1,6 +1,6 @@
 #include <ESPConfig.h>
 
-bool getConfig(const char *configPath, Config config) {
+bool getConfig(const char *configPath, Config &config) {
     File configFile = SPIFFS.open(configPath, FILE_READ);
 
     if (!configFile) {
@@ -53,6 +53,8 @@ bool getConfig(const char *configPath, Config config) {
         !json.containsKey("mqttPassword") ||
         !json.containsKey("mqttPublishChannel") ||
         !json.containsKey("mqttSubscribeChannel") ||
+        !json.containsKey("telegramBotToken") ||
+        !json.containsKey("otaPassword") ||
         !json.containsKey("uuid")
     ) {
         logger(F("getConfig"));
@@ -64,14 +66,14 @@ bool getConfig(const char *configPath, Config config) {
 
     strlcpy(config.wifiSsid, json["wifiSsid"], sizeof(config.wifiSsid));
     strlcpy(config.wifiPassword, json["wifiPassword"], sizeof(config.wifiPassword));
-
     strlcpy(config.mqttHost, json["mqttHost"], sizeof(config.mqttHost));
-    strlcpy(config.mqttPort, json["mqttPort"], sizeof(config.mqttPort));
+    config.mqttPort = json["mqttPort"] | 1883;
     strlcpy(config.mqttUsername, json["mqttUsername"], sizeof(config.mqttUsername));
     strlcpy(config.mqttPassword, json["mqttPassword"], sizeof(config.mqttPassword));
     strlcpy(config.mqttPublishChannel, json["mqttPublishChannel"], sizeof(config.mqttPublishChannel));
     strlcpy(config.mqttSubscribeChannel, json["mqttSubscribeChannel"], sizeof(config.mqttSubscribeChannel));
-
+    strlcpy(config.telegramBotToken, json["telegramBotToken"], sizeof(config.telegramBotToken));
+    strlcpy(config.otaPassword, json["otaPassword"], sizeof(config.otaPassword));
     strlcpy(config.uuid, json["uuid"], sizeof(config.uuid));
 
     return true;
@@ -83,11 +85,13 @@ bool setConfig(const char *configPath, Config newConfig) {
     json["wifiSsid"] = String(newConfig.wifiSsid);
     json["wifiPassword"] = String(newConfig.wifiPassword);
     json["mqttHost"] = String(newConfig.mqttHost);
-    json["mqttPort"] = String(newConfig.mqttPort);
+    json["mqttPort"] = newConfig.mqttPort;
     json["mqttUsername"] = String(newConfig.mqttUsername);
     json["mqttPassword"] = String(newConfig.mqttPassword);
     json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);
     json["mqttSubscribeChannel"] = String(newConfig.mqttSubscribeChannel);
+    json["telegramBotToken"] = String(newConfig.telegramBotToken);
+    json["otaPassword"] = String(newConfig.otaPassword);
 
     if (strlen(newConfig.uuid) == 0) {
         uint32_t tmpUuid = esp_random();

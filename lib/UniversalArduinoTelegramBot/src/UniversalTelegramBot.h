@@ -23,6 +23,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 #define UniversalTelegramBot_h
 
 #include <Arduino.h>
+#ifndef ARDUINOJSON_DECODE_UNICODE
+    #define ARDUINOJSON_DECODE_UNICODE 1
+#endif
 #include <ArduinoJson.h>
 #include <Client.h>
 
@@ -49,6 +52,10 @@ struct telegramMessage {
 class UniversalTelegramBot {
 public:
   UniversalTelegramBot(String token, Client &client);
+  UniversalTelegramBot();
+  UniversalTelegramBot(Client &client);
+  void setClient(Client &client);
+  void setToken(String token);
   String sendGetToTelegram(String command);
   String sendPostToTelegram(String command, JsonObject payload);
   String
@@ -87,7 +94,7 @@ public:
   String name;
   String userName;
   int longPoll = 0;
-  bool _debug = false;
+  bool _debug = true;
   int waitForResponse = 1500;
 
 private:

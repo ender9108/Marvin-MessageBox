@@ -9,3 +9,8 @@ void logger(String message, bool endLine) {
         }
     }
 }
+
+void restart() {
+    logger("Restart ESP");
+    ESP.restart();
+}
