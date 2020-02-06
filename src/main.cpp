@@ -47,48 +47,6 @@ unsigned long restartRequested = 0;
     bool mqttConnected = false;
 #endif
 
-bool wifiConnect() {
-    unsigned int count = 0;
-    WiFi.begin(config.wifiSsid, config.wifiPassword);
-    Serial.print(F("Try to connect to "));
-    logger(config.wifiSsid);
-
-    while (count < 20) {
-        if (WiFi.status() == WL_CONNECTED) {
-            logger("");
-            Serial.print(F("WiFi connected (IP : "));  
-            Serial.print(WiFi.localIP());
-            logger(F(")"));
-
-            return true;
-        } else {
-            delay(500);
-            Serial.print(F("."));  
-        }
-
-        count++;
-    }
-
-    Serial.print(F("Error connection to "));
-    logger(String(config.wifiSsid));
-    return false;
-}
-
-bool checkWifiConfigValues() {
-    logger(F("config.wifiSsid length : "), false);
-    logger(String(strlen(config.wifiSsid)));
-
-    logger(F("config.wifiPassword length : "), false);
-    logger(String(strlen(config.wifiPassword)));
-
-    if ( strlen(config.wifiSsid) > 1 && strlen(config.wifiPassword) > 1 ) {
-        return true;
-    }
-
-    logger(F("Ssid and passw not present in SPIFFS"));
-    return false;
-}
-
 #if MQTT_ENABLE == true
     bool mqttConnect() {
         int count = 0;
@@ -448,8 +406,8 @@ void setup() {
 
     // Get wifi SSID and PASSW from SPIFFS
     if (true == getConfig(configFilePath, config)) {
-        if (true == checkWifiConfigValues()) {
-            wifiConnected = wifiConnect();
+        if (true == checkWifiConfigValues(config.wifiSsid, config.wifiPassword)) {
+            wifiConnected = wifiConnect(config.wifiSsid, config.wifiPassword);
         
             #if MQTT_ENABLE == true
             if (true == wifiConnected && true == config.mqttEnable) {

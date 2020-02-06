@@ -11,6 +11,7 @@
 #include <WebServer.h>
 #include <ESPTools.h>
 #include <ESPConfig.h>
+#include <ESPWifi.h>
 #include <WiFiClientSecure.h>
 
 /* Conditional compilation */
