@@ -115,7 +115,7 @@ void handleHome() {
     File file = SPIFFS.open("/index.html", FILE_READ);
 
     if (!file) {
-        logger("Failed to open file \"" + String(indexFile) + "\".");
+        logger("Failed to open file \"/index.html\".");
         server.send(500, "text/plain", "Internal error");
     } else {
         content = file.readString();
