@@ -16,8 +16,30 @@
       <div class="container mt-4">
         <div class="alert alert-success" role="alert">
             <p class="text-center" style="font-size: 3em;">Success save config</p>
-            <p class="text-center" style="font-size: 1.2em;">Click <a href="/restart">here</a> to restart module</p>
+            <p class="text-center" style="font-size: 1.2em;">Click <a href="#" onclick="restart(event)">here</a> to restart module</p>
         </div>
       </div>
+
+      <script>
+        function restart(event) {
+          event.stopPropagation()
+          event.preventDefault()
+
+          let myHeaders = new Headers();
+          myHeaders.append("Content-Type", "text/plain");
+          let myInit = { 
+            method: 'GET',
+            headers: myHeaders
+          };
+
+          fetch("/restart", myInit).then(function(response) {
+            response.text().then(function(text) {
+              alert(text);
+            });
+          }).catch(function(error) {
+            alert(error);
+          });
+        }
+      </script>
   </body>
 </html>

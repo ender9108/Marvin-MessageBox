@@ -2,6 +2,9 @@
 
 #include <Arduino.h>
 #include <SPIFFS.h>
+#ifndef ARDUINOJSON_DECODE_UNICODE
+    #define ARDUINOJSON_DECODE_UNICODE 1
+#endif
 #include <ArduinoJson.h>
 #include <UniversalTelegramBot.h>
 #include <Ticker.h>
@@ -21,7 +24,7 @@
 #define DURATION_BTN_RESET_PRESS 10000
 
 /* Telegram */
-#define CHECK_MSG_DELAY 5000
+#define CHECK_MSG_DELAY 10000
 
 /* Leds pin */
 #define LED_1_PIN       10
@@ -51,3 +54,4 @@
 #endif
 
 void blinkLed(int repeat = 0, int time = 250);
+void tickerManager(bool start, float timer = 1);

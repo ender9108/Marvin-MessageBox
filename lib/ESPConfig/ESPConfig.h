@@ -2,6 +2,9 @@
 
 #include <Arduino.h>
 #include "ESPTools.h"
+#ifndef ARDUINOJSON_DECODE_UNICODE
+    #define ARDUINOJSON_DECODE_UNICODE 1
+#endif
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 
@@ -23,9 +26,10 @@ struct Config {
     char mqttPassword[64]           = "";
     char mqttPublishChannel[128]    = "device/to/marvin";
     char mqttSubscribeChannel[128]  = "marvin/to/device";
+    char telegramBotToken[128]      = "";
     char uuid[64]                   = "";
 };
 
-bool getConfig(const char *configPath, Config config);
+bool getConfig(const char *configPath, Config &config);
 bool setConfig(const char *configPath, Config newConfig);
 void resetConfig(const char *configPath);

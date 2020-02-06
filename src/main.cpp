@@ -11,7 +11,6 @@ const char *wifiApSsid      = "MarvinMessageBoxSsid";
 const char *wifiApPassw     = "MarvinMessageBox";
 const char *appName         = "MessageBox";
 const char *hostname        = "marvin-messagebox.local";
-const char *telegramToken   = "*** TOKEN ***";
 
 #if OTA_ENABLE == true
     const char *otaPasswordHash = "***** MD5 password *****";
@@ -27,7 +26,7 @@ Ticker ticker;
 Config config;
 LastMessage lastMessage;
 WebServer server(80);
-UniversalTelegramBot bot(telegramToken, wifiClient);
+UniversalTelegramBot bot(wifiClient);
 
 #if SCREEN_TYPE == oled
     // INIT SCREEN LIBRARY OLED
@@ -124,11 +123,6 @@ bool checkWifiConfigValues() {
     }
 #endif
 
-void restart() {
-    logger("Restart ESP");
-    ESP.restart();
-}
-
 void handleHome() {
     String content = "";
 
@@ -170,6 +164,7 @@ void handleHome() {
         content.replace("%MQTT_PASSWD%", String(config.mqttPassword));
         content.replace("%MQTT_PUB_CHAN%", String(config.mqttPublishChannel));
         content.replace("%MQTT_SUB_CHAN%", String(config.mqttSubscribeChannel));
+        content.replace("%TELEGRAM_TOKEN%", String(config.telegramBotToken));
 
         server.send(200, "text/html", content);
     }
@@ -218,6 +213,7 @@ void handleSave() {
             server.arg("mqttPassword").toCharArray(config.mqttPassword, 64);
             server.arg("mqttPublishChannel").toCharArray(config.mqttPublishChannel, 128);
             server.arg("mqttSubscribeChannel").toCharArray(config.mqttSubscribeChannel, 128);
+            server.arg("telegramBotToken").toCharArray(config.telegramBotToken, 128);
         #endif
 
         setConfig(configFilePath, config);
@@ -240,6 +236,12 @@ void handleSave() {
         server.sendHeader("Location", "/", true);
         server.send(302, "text/plain", "");
     }
+}
+
+void handleRestart() {
+    server.send(200, "text/plain", "Redémarrage en cours. Vous pouvez vous reconnecter à votre réseau wifi");
+    delay(1000);
+    restart();
 }
 
 void handleCss() {
@@ -277,7 +279,7 @@ void handleNotFound() {
 void serverConfig() {
     server.on("/", HTTP_GET, handleHome);
     server.on("/save", HTTP_POST, handleSave);
-    server.on("/restart", HTTP_GET, restart);
+    server.on("/restart", HTTP_GET, handleRestart);
     server.on("/bootstrap.min.css", HTTP_GET, handleCss);
     server.on("/favicon.ico", HTTP_GET, handleFavicon);
     server.onNotFound(handleNotFound);
@@ -336,6 +338,7 @@ void blinkLed(int repeat, int time) {
 }
 
 void tickerBlinkLed() {
+    logger("tickerBlinkLed !");
     blinkLed();
 }
 
@@ -346,13 +349,17 @@ void shutdownLed() {
     digitalWrite(LED_4_PIN, LOW);
 }
 
-void tickerManager(bool start) {
+void tickerManager(bool start, float timer) {
     shutdownLed();
 
     if (true == start) {
-        ticker.attach(1, tickerBlinkLed);
+        logger(F("Start ticker !"));
+        ticker.attach(timer, tickerBlinkLed);
+        // @todo led color red
     } else {
+        logger(F("Stop ticker !"));
         ticker.detach();
+        // @todo led color blue
     }
 }
 
@@ -414,6 +421,7 @@ void readMessage() {
         logger(F("Send confirmation read message to bot"));
         bot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
         tickerManager(false);
+        
         #if MQTT_ENABLE == true
         mqttClient.publish(
             config.mqttPublishChannel, 
@@ -475,6 +483,7 @@ void setup() {
     }
 
     if (false == startApp) {
+        tickerManager(true);
         WiFi.mode(WIFI_AP);
         WiFi.softAP(wifiApSsid, wifiApPassw);
         logger(F("WiFi AP is ready (IP : "), false); 
@@ -490,6 +499,7 @@ void setup() {
         pinMode(LED_3_PIN, OUTPUT);
         pinMode(LED_4_PIN, OUTPUT);
 
+        tickerManager(false);
         shutdownLed();
 
         /*screen.init();
@@ -498,6 +508,7 @@ void setup() {
         screen.setTextColor(TFT_WHITE, TFT_BLACK);
         screen.setTextSize(1);*/
 
+        bot.setToken(config.telegramBotToken);
         logger(F("App started !"));
     }
 
@@ -542,57 +553,57 @@ void loop() {
 
             mqttClient.loop();
         }
-
         #endif
 
         if (digitalRead(BTN_READ_PIN) == HIGH) {
-        readMessage();
-    }
-
-    if (digitalRead(BTN_RESTART_PIN) == HIGH) {
-        restartRequested = millis();
-    }
-
-    if (digitalRead(BTN_RESTART_PIN) == HIGH && previousResetBtnState == LOW) {
-        previousResetBtnState = HIGH;
-        resetBtnDuration = millis();
-    }
-
-    if (
-        resetBtnDuration != 0 &&
-        digitalRead(BTN_RESTART_PIN) == HIGH && 
-        previousResetBtnState == HIGH
-    ) {
-        if (millis() - resetBtnDuration >= DURATION_BTN_RESET_PRESS) {
-            blinkLed(5, 250);
-            resetRequested = millis();
+            readMessage();
         }
-    }
 
-    if (digitalRead(BTN_RESTART_PIN) == LOW){                              //extinction de la led 1 si le bouton est relaché
-        previousResetBtnState = LOW;
-        resetBtnDuration = 0;
-        resetRequested = 0;
-    }
-
-    if (restartRequested != 0) {
-        if (millis() - restartRequested >= DURATION_BEFORE_RESTART ) {
-            restart();
+        if (digitalRead(BTN_RESTART_PIN) == HIGH) {
+            tickerManager(true, 0.5);
+            restartRequested = millis();
         }
-    }
 
-    if (resetRequested != 0) {
-        if (millis() - resetRequested >= DURATION_BEFORE_RESET) {
-            resetConfig(configFilePath);
-            restart();
+        if (digitalRead(BTN_RESTART_PIN) == HIGH && previousResetBtnState == LOW) {
+            previousResetBtnState = HIGH;
+            resetBtnDuration = millis();
         }
-    }
+
+        if (
+            resetBtnDuration != 0 &&
+            digitalRead(BTN_RESTART_PIN) == HIGH && 
+            previousResetBtnState == HIGH
+        ) {
+            if (millis() - resetBtnDuration >= DURATION_BTN_RESET_PRESS) {
+                tickerManager(true, 0.5);
+                resetRequested = millis();
+            }
+        }
+
+        if (digitalRead(BTN_RESTART_PIN) == LOW){                              //extinction de la led 1 si le bouton est relaché
+            previousResetBtnState = LOW;
+            resetBtnDuration = 0;
+            resetRequested = 0;
+        }
+
+        if (restartRequested != 0) {
+            if (millis() - restartRequested >= DURATION_BEFORE_RESTART ) {
+                restart();
+            }
+        }
+
+        if (resetRequested != 0) {
+            if (millis() - resetRequested >= DURATION_BEFORE_RESET) {
+                resetConfig(configFilePath);
+                restart();
+            }
+        }
 
         if (millis() > telegramBotLasttime + CHECK_MSG_DELAY)  {
             telegramBotLasttime = millis();
             logger(F("Checking for messages.. "));
             int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-
+            logger("Num: " + String(numNewMessages));
             if (numNewMessages > 0) {
                 handleNewMessages(numNewMessages);
             }

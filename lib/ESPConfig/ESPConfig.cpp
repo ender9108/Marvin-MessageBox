@@ -1,6 +1,6 @@
 #include <ESPConfig.h>
 
-bool getConfig(const char *configPath, Config config) {
+bool getConfig(const char *configPath, Config &config) {
     File configFile = SPIFFS.open(configPath, FILE_READ);
 
     if (!configFile) {
@@ -53,6 +53,7 @@ bool getConfig(const char *configPath, Config config) {
         !json.containsKey("mqttPassword") ||
         !json.containsKey("mqttPublishChannel") ||
         !json.containsKey("mqttSubscribeChannel") ||
+        !json.containsKey("telegramBotToken") ||
         !json.containsKey("uuid")
     ) {
         logger(F("getConfig"));
@@ -71,6 +72,7 @@ bool getConfig(const char *configPath, Config config) {
     strlcpy(config.mqttPassword, json["mqttPassword"], sizeof(config.mqttPassword));
     strlcpy(config.mqttPublishChannel, json["mqttPublishChannel"], sizeof(config.mqttPublishChannel));
     strlcpy(config.mqttSubscribeChannel, json["mqttSubscribeChannel"], sizeof(config.mqttSubscribeChannel));
+    strlcpy(config.telegramBotToken, json["telegramBotToken"], sizeof(config.telegramBotToken));
 
     strlcpy(config.uuid, json["uuid"], sizeof(config.uuid));
 
@@ -88,6 +90,7 @@ bool setConfig(const char *configPath, Config newConfig) {
     json["mqttPassword"] = String(newConfig.mqttPassword);
     json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);
     json["mqttSubscribeChannel"] = String(newConfig.mqttSubscribeChannel);
+    json["telegramBotToken"] = String(newConfig.telegramBotToken);
 
     if (strlen(newConfig.uuid) == 0) {
         uint32_t tmpUuid = esp_random();

@@ -31,6 +31,13 @@
                 </div>
             </fieldset>
             <fieldset class="mt-4">
+                <legend>Telegram</legend>
+                <div class="form-group ">
+                    <label for="telegramBotToken">token</label>
+                    <input type="text" class="form-control" id="telegramBotToken" name="telegramBotToken" value="%TELEGRAM_TOKEN%" required>
+                </div>
+            </fieldset class="mt-4">
+            <fieldset class="mt-4">
                 <legend>Mqtt</legend>
                 <div class="form-check mb-4">
                     <input type="checkbox" value="1" class="form-check-input" id="mqttEnable" name="mqttEnable" onclick="changeFieldStatus(this.checked)" %MQTT_ENABLE%>

@@ -8,5 +8,6 @@
     "mqttPassword": "",
     "mqttPublishChannel": "marvin/device/action",
     "mqttSubscribeChannel": "marvin/device/listen",
+    "telegramBotToken": "977407120:AAGnsK3fZRIMKEgk0TUjmz1rfQ7W1scPwXA",
     "uuid": ""
 }
