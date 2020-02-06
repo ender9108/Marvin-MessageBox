@@ -145,6 +145,7 @@ void handleHome() {
         } else {
             content.replace("%OTA_INPUT_HIDDEN%", "");
         }
+
         content.replace("%MQTT_HOST%", String(config.mqttHost));
         content.replace("%MQTT_PORT%", String(config.mqttPort));
         content.replace("%MQTT_USERNAME%", String(config.mqttUsername));
