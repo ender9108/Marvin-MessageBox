@@ -23,12 +23,7 @@ Config config;
 LastMessage lastMessage;
 WebServer server(80);
 UniversalTelegramBot bot(wifiClient);
-
-#if SCREEN_TYPE == oled
-    // INIT SCREEN LIBRARY OLED
-#elif SCREEN_TYPE == tft
-    // INIT SCREEN LIBRARY TFT
-#endif
+Adafruit_ILI9341 screen = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
 bool wifiConnected = false;
 bool startApp = false;
@@ -367,6 +362,7 @@ void readMessage() {
     } else {
         // Display message on screen
         logger(F("Display message on screen"));
+        screen.println(lastMessage.message);
 
         logger(F("Send confirmation read message to bot"));
         bot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
@@ -395,9 +391,21 @@ void setup() {
 
     logger(F("SPIFFS mounted"));
 
+    screen.begin();
+    screen.setRotation(1);
+    screen.setFont();
+    screen.fillScreen(ILI9341_BLACK);
+    screen.setTextColor(ILI9341_WHITE);
+    screen.setTextSize(1);
+
+    screen.setCursor(0, 0);
+    screen.println("Start in progress...");
+
     // Get wifi SSID and PASSW from SPIFFS
     if (true == getConfig(configFilePath, config)) {
+        screen.println("[Ok] - Get configuration");
         if (true == checkWifiConfigValues(config.wifiSsid, config.wifiPassword)) {
+            screen.println("[Ok] - Check wifi configuration");
             wifiConnected = wifiConnect(config.wifiSsid, config.wifiPassword);
         
             #if MQTT_ENABLE == true
@@ -405,6 +413,7 @@ void setup() {
                 mqttClient.setClient(wifiClient);
                 mqttClient.setServer(config.mqttHost, config.mqttPort);
                 mqttClient.setCallback(callback);
+                screen.println("[Ok] - Init MQTT client");
                 mqttConnected = mqttConnect();
             }
             #endif
@@ -412,6 +421,8 @@ void setup() {
     } // endif true == getConfig()
 
     if (false == wifiConnected) {
+        screen.println("[Nok] - Wifi connection error (" + String(config.wifiSsid) + ")");
+
         if (strlen(config.wifiSsid) > 1) {
             errorMessage = "Wifi connection error to " + String(config.wifiSsid);
         }
@@ -423,11 +434,13 @@ void setup() {
             true == config.mqttEnable && 
             false == mqttConnected
         ) {
+            screen.println("[Nok] - Mqtt connection error (" + String(config.mqttHost) + ")");
             errorMessage = "Mqtt connection error to " + String(config.mqttHost);
             startApp = false;
         }
     #endif
     else {
+        screen.println("[Ok] - App started !");
         startApp = true;
     }
 
@@ -451,12 +464,6 @@ void setup() {
 
         tickerManager(false);
         shutdownLed();
-
-        /*screen.init();
-        screen.setRotation(1);
-        screen.fillScreen(TFT_BLACK);
-        screen.setTextColor(TFT_WHITE, TFT_BLACK);
-        screen.setTextSize(1);*/
 
         bot.setToken(config.telegramBotToken);
         logger(F("App started !"));
