@@ -16,6 +16,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
+//#include <TelegramBot.h>
 
 /* Conditional compilation */
 #define MQTT_ENABLE     false
@@ -32,10 +33,14 @@
 #define CHECK_MSG_DELAY 10000
 
 /* Leds pin */
-#define LED_1_PIN       10
-#define LED_2_PIN       11
-#define LED_3_PIN       12
-#define LED_4_PIN       13
+#define LED_1_R_PIN     10
+#define LED_1_B_PIN     11
+#define LED_2_R_PIN     12
+#define LED_2_B_PIN     13
+#define LED_3_R_PIN     14
+#define LED_3_B_PIN     15
+#define LED_4_R_PIN     16
+#define LED_4_B_PIN     17
 
 /* Button pin */
 #define BTN_READ_PIN    14
@@ -43,12 +48,15 @@
 #define BTN_RESET_PIN   16
 
 /* TFT SCREEN */
-#define TFT_DC 4
-#define TFT_CS 15
-#define TFT_RST 2
-#define TFT_MISO 19         
-#define TFT_MOSI 23           
-#define TFT_CLK 18 
+#define TFT_DC          4
+#define TFT_CS          15
+#define TFT_RST         2
+#define TFT_MISO        19         
+#define TFT_MOSI        23           
+#define TFT_CLK         18
+
+#define BLINK_RED       9
+#define BLINK_BLUE      1
 
 #if MQTT_ENABLE == true
     // @todo See large message method in exemple
@@ -61,4 +69,4 @@
 #endif
 
 void blinkLed(int repeat = 0, int time = 250);
-void tickerManager(bool start, float timer = 1);
+void tickerManager(bool start = true, unsigned int status = BLINK_BLUE, float timer = 1);

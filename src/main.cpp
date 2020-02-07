@@ -12,7 +12,6 @@ const char *wifiApPassw     = "MarvinMessageBox";
 const char *appName         = "MessageBox";
 const char *hostname        = "marvin-messagebox.local";
 
-WiFiClientSecure wifiClient;
 Ticker ticker;
 
 #if MQTT_ENABLE == true
@@ -22,17 +21,23 @@ Ticker ticker;
 Config config;
 LastMessage lastMessage;
 WebServer server(80);
-UniversalTelegramBot bot(wifiClient);
+WiFiClientSecure wifiClient;
+UniversalTelegramBot telegramBot(wifiClient);
+//TelegramBot bot(wifiClient);
 Adafruit_ILI9341 screen = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
 bool wifiConnected = false;
 bool startApp = false;
+bool messageIsReading = false;
 long telegramBotLasttime; 
 String errorMessage = "";
 unsigned int previousResetBtnState = 0;
 unsigned long resetBtnDuration = 0;
 unsigned long resetRequested = 0;
 unsigned long restartRequested = 0;
+unsigned int blinkColor = 1;
+
+/* ********** MQTT ********** */
 
 #if MQTT_ENABLE == true
     bool mqttConnected = false;
@@ -99,6 +104,8 @@ unsigned long restartRequested = 0;
         memset(response, 0, sizeof(response));
     }
 #endif
+
+/* ********** WEB SERVER ********** */
 
 void handleHome() {
     String content = "";
@@ -266,54 +273,13 @@ void serverConfig() {
     logger("HTTP server started");
 }
 
-void blinkLed(int repeat, int time) {
-    if (repeat == 0) {
-        digitalWrite(LED_1_PIN, !digitalRead(LED_1_PIN));
-        digitalWrite(LED_2_PIN, !digitalRead(LED_2_PIN));
-        digitalWrite(LED_3_PIN, !digitalRead(LED_3_PIN));
-        digitalWrite(LED_4_PIN, !digitalRead(LED_4_PIN));
-    } else {
-        for (int i = 0; i < repeat; i++) {
-            digitalWrite(LED_1_PIN, !digitalRead(LED_1_PIN));
-            digitalWrite(LED_2_PIN, !digitalRead(LED_2_PIN));
-            digitalWrite(LED_3_PIN, !digitalRead(LED_3_PIN));
-            digitalWrite(LED_4_PIN, !digitalRead(LED_4_PIN));
-            delay(time);
-        }
-    }
-}
-
-void tickerBlinkLed() {
-    logger("tickerBlinkLed !");
-    blinkLed();
-}
-
-void shutdownLed() {
-    digitalWrite(LED_1_PIN, LOW);
-    digitalWrite(LED_2_PIN, LOW);
-    digitalWrite(LED_3_PIN, LOW);
-    digitalWrite(LED_4_PIN, LOW);
-}
-
-void tickerManager(bool start, float timer) {
-    shutdownLed();
-
-    if (true == start) {
-        logger(F("Start ticker !"));
-        ticker.attach(timer, tickerBlinkLed);
-        // @todo led color red
-    } else {
-        logger(F("Stop ticker !"));
-        ticker.detach();
-        // @todo led color blue
-    }
-}
+/* ********** TELEGRAM ********** */
 
 void handleNewMessages(int numNewMessages) {
     for (int i=0; i<numNewMessages; i++) {
-        String chatId = String(bot.messages[i].chat_id);
-        String text = bot.messages[i].text;
-        String fromName = bot.messages[i].from_name;
+        String chatId = String(telegramBot.messages[i].chat_id);
+        String text = telegramBot.messages[i].text;
+        String fromName = telegramBot.messages[i].from_name;
 
         logger("Chat id :" + chatId);
         logger("From name :" + fromName);
@@ -326,7 +292,7 @@ void handleNewMessages(int numNewMessages) {
 
         if (text.indexOf("/message") == 0) {
             logger(F("New message !"));
-            tickerManager(true);
+            tickerManager(true, BLINK_RED);
             text.replace("/message", "");
             logger("Content :" + text);
 
@@ -335,7 +301,7 @@ void handleNewMessages(int numNewMessages) {
             lastMessage.message = text;
 
             logger(F("Message waiting to be read"));
-            bot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture.", "");
+            telegramBot.sendSimpleMessage(chatId, "Message reçu. En attente de lecture.", "");
             #if MQTT_ENABLE == true
                 char response[256];
                 sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"newMessageReceived\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
@@ -348,12 +314,13 @@ void handleNewMessages(int numNewMessages) {
             // @todo concatenation not working
             String welcome = "Welcome to MessageBox, " + fromName + ".\n";
             welcome += "/message [MY_TEXT] : to send message in this box !\n";
-            bot.sendSimpleMessage(chatId, welcome, "Markdown");
+            telegramBot.sendSimpleMessage(chatId, welcome, "Markdown");
         }
-  }
+    }
 }
 
 void readMessage() {
+    messageIsReading = true;
     lastMessage.message.trim();
 
     if (lastMessage.message == "") {
@@ -365,9 +332,9 @@ void readMessage() {
         screen.println(lastMessage.message);
 
         logger(F("Send confirmation read message to bot"));
-        bot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
+        telegramBot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
         tickerManager(false);
-        
+
         #if MQTT_ENABLE == true
             char response[256];
             sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
@@ -379,6 +346,58 @@ void readMessage() {
         lastMessage.message = "";
     }
 }
+
+/* ********** LEDS ********** */
+
+void blinkLed() {
+    if (blinkColor == BLINK_BLUE) {
+        digitalWrite(LED_1_R_PIN, LOW);
+        digitalWrite(LED_1_B_PIN, !digitalRead(LED_1_B_PIN));
+        digitalWrite(LED_2_R_PIN, LOW);
+        digitalWrite(LED_2_B_PIN, !digitalRead(LED_2_B_PIN));
+        digitalWrite(LED_3_R_PIN, LOW);
+        digitalWrite(LED_3_B_PIN, !digitalRead(LED_3_B_PIN));
+        digitalWrite(LED_4_R_PIN, LOW);
+        digitalWrite(LED_4_B_PIN, !digitalRead(LED_4_B_PIN));
+    } else {
+        digitalWrite(LED_1_R_PIN, !digitalRead(LED_1_R_PIN));
+        digitalWrite(LED_1_B_PIN, LOW);
+        digitalWrite(LED_2_R_PIN, !digitalRead(LED_2_B_PIN));
+        digitalWrite(LED_2_B_PIN, LOW);
+        digitalWrite(LED_3_R_PIN, !digitalRead(LED_3_B_PIN));
+        digitalWrite(LED_3_B_PIN, LOW);
+        digitalWrite(LED_4_R_PIN, !digitalRead(LED_4_B_PIN));
+        digitalWrite(LED_4_B_PIN, LOW);
+    }
+}
+
+void shutdownLed() {
+    digitalWrite(LED_1_R_PIN, LOW);
+    digitalWrite(LED_1_B_PIN, LOW);
+    digitalWrite(LED_2_R_PIN, LOW);
+    digitalWrite(LED_2_B_PIN, LOW);
+    digitalWrite(LED_3_R_PIN, LOW);
+    digitalWrite(LED_3_B_PIN, LOW);
+    digitalWrite(LED_4_R_PIN, LOW);
+    digitalWrite(LED_4_B_PIN, LOW);
+}
+
+void tickerManager(bool start, unsigned int status, float timer) {
+    shutdownLed();
+    blinkColor = status;
+
+    if (true == start) {
+        logger(F("Start ticker !"));
+        ticker.attach(timer, blinkLed);
+        // @todo led color red
+    } else {
+        logger(F("Stop ticker !"));
+        ticker.detach();
+        // @todo led color blue
+    }
+}
+
+/* ********** COMMON ********** */
 
 void setup() {
     Serial.begin(SERIAL_BAUDRATE);
@@ -394,18 +413,29 @@ void setup() {
     screen.begin();
     screen.setRotation(1);
     screen.setFont();
-    screen.fillScreen(ILI9341_BLACK);
+    clearScreen(screen);
     screen.setTextColor(ILI9341_WHITE);
     screen.setTextSize(1);
 
     screen.setCursor(0, 0);
     screen.println("Start in progress...");
 
+    pinMode(LED_1_R_PIN, OUTPUT);
+    pinMode(LED_1_B_PIN, OUTPUT);
+    pinMode(LED_2_R_PIN, OUTPUT);
+    pinMode(LED_2_B_PIN, OUTPUT);
+    pinMode(LED_3_R_PIN, OUTPUT);
+    pinMode(LED_3_B_PIN, OUTPUT);
+    pinMode(LED_4_R_PIN, OUTPUT);
+    pinMode(LED_4_B_PIN, OUTPUT);
+
+    tickerManager(false);
+    shutdownLed();
+
     // Get wifi SSID and PASSW from SPIFFS
     if (true == getConfig(configFilePath, config)) {
         screen.println("[Ok] - Get configuration");
         if (true == checkWifiConfigValues(config.wifiSsid, config.wifiPassword)) {
-            screen.println("[Ok] - Check wifi configuration");
             wifiConnected = wifiConnect(config.wifiSsid, config.wifiPassword);
         
             #if MQTT_ENABLE == true
@@ -413,7 +443,6 @@ void setup() {
                 mqttClient.setClient(wifiClient);
                 mqttClient.setServer(config.mqttHost, config.mqttPort);
                 mqttClient.setCallback(callback);
-                screen.println("[Ok] - Init MQTT client");
                 mqttConnected = mqttConnect();
             }
             #endif
@@ -426,46 +455,39 @@ void setup() {
         if (strlen(config.wifiSsid) > 1) {
             errorMessage = "Wifi connection error to " + String(config.wifiSsid);
         }
+
         startApp = false;
     } 
     #if MQTT_ENABLE == true
-        else if (
-            true == wifiConnected &&
-            true == config.mqttEnable && 
-            false == mqttConnected
-        ) {
+        else if (true == wifiConnected &&true == config.mqttEnable && false == mqttConnected) {
             screen.println("[Nok] - Mqtt connection error (" + String(config.mqttHost) + ")");
             errorMessage = "Mqtt connection error to " + String(config.mqttHost);
             startApp = false;
         }
     #endif
     else {
-        screen.println("[Ok] - App started !");
         startApp = true;
     }
 
     if (false == startApp) {
-        tickerManager(true);
+        tickerManager(true, BLINK_RED, 2);
         WiFi.mode(WIFI_AP);
         WiFi.softAP(wifiApSsid, wifiApPassw);
         WiFi.setHostname(hostname);
-        logger(F("WiFi AP is ready (IP : "), false); 
-        logger(WiFi.softAPIP().toString(), false);
-        logger(F(")"));
+        logger("WiFi AP is ready (IP : " + WiFi.softAPIP().toString() + ")");
         serverConfig();
+
+        clearScreen(screen);
+        screen.println("Settings interface is started.");
+        screen.println("Open your browser and connect to http://" + String(WiFi.getHostname()));
     } else {
         pinMode(BTN_READ_PIN, INPUT);
         pinMode(BTN_RESTART_PIN, INPUT);
         pinMode(BTN_RESET_PIN, INPUT);
-        pinMode(LED_1_PIN, OUTPUT);
-        pinMode(LED_2_PIN, OUTPUT);
-        pinMode(LED_3_PIN, OUTPUT);
-        pinMode(LED_4_PIN, OUTPUT);
 
+        telegramBot.setToken(config.telegramBotToken);
+        clearScreen(screen);
         tickerManager(false);
-        shutdownLed();
-
-        bot.setToken(config.telegramBotToken);
         logger(F("App started !"));
     }
 
@@ -502,6 +524,7 @@ void setup() {
 
 void loop() {
     if (true == startApp) {
+        delay(5000);
         #if MQTT_ENABLE == true
         if (true == config.mqttEnable) {
             if (!mqttClient.connected()) {
@@ -513,11 +536,21 @@ void loop() {
         #endif
 
         if (digitalRead(BTN_READ_PIN) == HIGH) {
-            readMessage();
+            if (false == messageIsReading) {
+                screen.writeCommand(ILI9341_SLPOUT);
+                readMessage();
+            }
+        }
+
+        if (digitalRead(BTN_READ_PIN) == LOW) {
+            if (true == messageIsReading) {
+                screen.fillScreen(ILI9341_BLACK);
+                screen.writeCommand(ILI9341_SLPIN);
+            }
         }
 
         if (digitalRead(BTN_RESTART_PIN) == HIGH) {
-            tickerManager(true, 0.5);
+            tickerManager(true, BLINK_BLUE, 0.5);
             restartRequested = millis();
         }
 
@@ -532,7 +565,7 @@ void loop() {
             previousResetBtnState == HIGH
         ) {
             if (millis() - resetBtnDuration >= DURATION_BTN_RESET_PRESS) {
-                tickerManager(true, 0.5);
+                tickerManager(true, BLINK_RED, 0.5);
                 resetRequested = millis();
             }
         }
@@ -559,7 +592,7 @@ void loop() {
         if (millis() > telegramBotLasttime + CHECK_MSG_DELAY)  {
             telegramBotLasttime = millis();
             logger(F("Checking for messages.. "));
-            int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+            int numNewMessages = telegramBot.getUpdates(telegramBot.last_message_received + 1);
             logger("Num: " + String(numNewMessages));
             if (numNewMessages > 0) {
                 handleNewMessages(numNewMessages);

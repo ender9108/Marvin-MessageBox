@@ -28,3 +28,7 @@ void printCenterText(Adafruit_ILI9341 screen, String string, uint8_t txtSize, ui
 	screen.setCursor(screen.width() - (string.length() * 3 * txtSize), screen.height() - (4 * txtSize));
     screen.println(string);
 }
+
+void clearScreen(Adafruit_ILI9341 screen) {
+    screen.fillScreen(ILI9341_BLACK);
+}

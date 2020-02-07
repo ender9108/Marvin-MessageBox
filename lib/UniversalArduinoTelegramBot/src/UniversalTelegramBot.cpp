@@ -589,7 +589,6 @@ bool UniversalTelegramBot::sendPostMessage(JsonObject payload) {
 }
 
 String UniversalTelegramBot::sendPostPhoto(JsonObject payload) {
-
   bool sent = false;
   String response = "";
   if (_debug)
