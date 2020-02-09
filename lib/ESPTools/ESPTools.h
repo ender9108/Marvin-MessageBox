@@ -11,7 +11,7 @@
 #define CONFIG_ERROR    9
 #define CONFIG_OK       1
 
-const int ledStatus = CONFIG_OK;
+//const int ledStatus = CONFIG_OK;
 
 void logger(String message, bool endLine = true);
 

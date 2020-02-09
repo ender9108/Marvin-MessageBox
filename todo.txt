@@ -1,0 +1,3 @@
+getUpdates
+    Si nourveau message alors return struct Message
+    Sinon return struct Message null

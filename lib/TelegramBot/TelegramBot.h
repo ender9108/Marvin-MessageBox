@@ -8,11 +8,15 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 
-#define TELEGRAM_HOST   "api.telegram.org"
-#define TELEGRAM_PORT   443
+#define TELEGRAM_HOST       "api.telegram.org"
+#define TELEGRAM_PORT       443
+#define TELEGRAM_MAX_MSG    3
+
+typedef bool (*DataAvailable)();
+typedef byte (*GetNextByte)();
 
 struct User {
-    int id;
+    long id;
     String firstName;
     String lastName;
     String username;
@@ -20,17 +24,20 @@ struct User {
     bool isBot;
 };
 
+struct Chat {
+    int id;
+};
+
 struct Message {
-  String text;
-  String chat_id;
-  String chat_title;
-  String from_id;
-  User user;
-  String date;
-  String type;
-  float longitude;
-  float latitude;
-  int update_id;
+    long id;
+    int date;
+    Chat chat;
+    String chatTitle;
+    String text;
+    User from;
+    float longitude;
+    float latitude;
+    String type;
 };
 
 /*
@@ -84,17 +91,31 @@ class TelegramBot {
         void setToken(String token);
         void enableDebugMode();
         User getMe();
-        
+        int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_MSG);
+        bool sendMessage(long chatId, String text, String parseMode = "", bool disablePreview = false, long replyToMessageId = 0, bool disableNotification = false);
+        Message* getMessages(bool forceUpdate = true);
+        Message getLastMessage(bool forceUpdate = true);
+        long getLastMessageId();
+
+        bool sendContact(long chatId, String phoneNumber, String firstName, String lastName = "", long replyToMessageId = 0, bool disableNotification = false);
+        bool sendChatAction(long chatId, String action);
+        bool sendLocation(long chatId, float latitude, float longitude, long replyToMessageId = 0, bool disableNotification = false, int livePeriod = 0);
+        bool editMessageLiveLocation(long chatId, long messageId, long inlineMessageId, float latitude, float longitude);
+        bool stopMessageLiveLocation(long chatId, long messageId, long inlineMessageId);
+        bool forwardMessage(long chatId, long fromChatId, long messageId, bool disableNotification = false);
+        bool sendPhoto(long chatId, String photo, String caption = "", long replyToMessageId = 0, bool disableNotification = false, String parseMode = "");
+        bool sendPhoto(long chatId, int fileSize, DataAvailable dataAvailableCallback, GetNextByte getNextByteCallback, String caption = "", long replyToMessageId = 0, bool disableNotification = false, String parseMode = "");
     private:
         String token;
-        HTTPClient *client;
-        WiFiClientSecure *wifiClient;
+        WiFiClientSecure *client;
         bool debugMode = false;
-        User user;
-        void close();
+        User botUser;
+        Message messages[TELEGRAM_MAX_MSG];
+        String baseAction;
+        long lastMessageId = 0;
         DynamicJsonDocument sendGetCommand(String action);
         DynamicJsonDocument sendPostCommand(String action, JsonObject payload);
-        void logger(String message, bool endLine = false);
-        bool connected();
-        DynamicJsonDocument buildJsonResponseError(DynamicJsonDocument response, String message);
+        DynamicJsonDocument buildJsonResponseError(int statusCode, String message);
+        bool hydrateMessageStruct(JsonObject message, int index);
+        void logger(String message, bool endLine = true);
 };

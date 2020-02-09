@@ -22,13 +22,14 @@ Config config;
 LastMessage lastMessage;
 WebServer server(80);
 WiFiClientSecure wifiClient;
-UniversalTelegramBot telegramBot(wifiClient);
-//TelegramBot bot(wifiClient);
+//UniversalTelegramBot telegramBot(wifiClient);
+TelegramBot telegramBot(wifiClient);
 Adafruit_ILI9341 screen = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
 bool wifiConnected = false;
 bool startApp = false;
 bool messageIsReading = false;
+bool ledStatus = false;
 long telegramBotLasttime; 
 String errorMessage = "";
 unsigned int previousResetBtnState = 0;
@@ -275,7 +276,7 @@ void serverConfig() {
 
 /* ********** TELEGRAM ********** */
 
-void handleNewMessages(int numNewMessages) {
+/*void handleNewMessages(int numNewMessages) {
     for (int i=0; i<numNewMessages; i++) {
         String chatId = String(telegramBot.messages[i].chat_id);
         String text = telegramBot.messages[i].text;
@@ -317,9 +318,9 @@ void handleNewMessages(int numNewMessages) {
             telegramBot.sendSimpleMessage(chatId, welcome, "Markdown");
         }
     }
-}
+}*/
 
-void readMessage() {
+/*void readMessage() {
     messageIsReading = true;
     lastMessage.message.trim();
 
@@ -345,41 +346,63 @@ void readMessage() {
         lastMessage.name = "";
         lastMessage.message = "";
     }
-}
+}*/
 
 /* ********** LEDS ********** */
 
 void blinkLed() {
+    int value = 0;
+
+    if (false == ledStatus) {
+        ledStatus = true;
+        value = 255;
+    } else {
+        ledStatus = false;
+        value = 0;
+    }
+
     if (blinkColor == BLINK_BLUE) {
-        digitalWrite(LED_1_R_PIN, LOW);
+        ledcWrite(0, 0);
+        ledcWrite(1, 0);
+        ledcWrite(2, value);
+        /*digitalWrite(LED_1_R_PIN, LOW);
+        digitalWrite(LED_1_G_PIN, LOW);
         digitalWrite(LED_1_B_PIN, !digitalRead(LED_1_B_PIN));
         digitalWrite(LED_2_R_PIN, LOW);
         digitalWrite(LED_2_B_PIN, !digitalRead(LED_2_B_PIN));
         digitalWrite(LED_3_R_PIN, LOW);
         digitalWrite(LED_3_B_PIN, !digitalRead(LED_3_B_PIN));
         digitalWrite(LED_4_R_PIN, LOW);
-        digitalWrite(LED_4_B_PIN, !digitalRead(LED_4_B_PIN));
+        digitalWrite(LED_4_B_PIN, !digitalRead(LED_4_B_PIN));*/
     } else {
-        digitalWrite(LED_1_R_PIN, !digitalRead(LED_1_R_PIN));
+        ledcWrite(0, value);
+        ledcWrite(1, 0);
+        ledcWrite(2, 0);
+        /*digitalWrite(LED_1_R_PIN, !digitalRead(LED_1_R_PIN));
+        digitalWrite(LED_1_G_PIN, LOW);
         digitalWrite(LED_1_B_PIN, LOW);
         digitalWrite(LED_2_R_PIN, !digitalRead(LED_2_B_PIN));
         digitalWrite(LED_2_B_PIN, LOW);
         digitalWrite(LED_3_R_PIN, !digitalRead(LED_3_B_PIN));
         digitalWrite(LED_3_B_PIN, LOW);
         digitalWrite(LED_4_R_PIN, !digitalRead(LED_4_B_PIN));
-        digitalWrite(LED_4_B_PIN, LOW);
+        digitalWrite(LED_4_B_PIN, LOW);*/
     }
 }
 
 void shutdownLed() {
-    digitalWrite(LED_1_R_PIN, LOW);
+    ledcWrite(0, 0);
+    ledcWrite(1, 0);
+    ledcWrite(2, 0);
+    /*digitalWrite(LED_1_R_PIN, LOW);
+    digitalWrite(LED_1_G_PIN, LOW);
     digitalWrite(LED_1_B_PIN, LOW);
     digitalWrite(LED_2_R_PIN, LOW);
     digitalWrite(LED_2_B_PIN, LOW);
     digitalWrite(LED_3_R_PIN, LOW);
     digitalWrite(LED_3_B_PIN, LOW);
     digitalWrite(LED_4_R_PIN, LOW);
-    digitalWrite(LED_4_B_PIN, LOW);
+    digitalWrite(LED_4_B_PIN, LOW);*/
 }
 
 void tickerManager(bool start, unsigned int status, float timer) {
@@ -420,14 +443,23 @@ void setup() {
     screen.setCursor(0, 0);
     screen.println("Start in progress...");
 
-    pinMode(LED_1_R_PIN, OUTPUT);
+    ledcSetup(0, 5000, 8);
+    ledcSetup(1, 5000, 8);
+    ledcSetup(2, 5000, 8);
+    // attach the channel to the GPIO to be controlled
+    ledcAttachPin(LED_1_R_PIN, 0);
+    ledcAttachPin(LED_1_G_PIN, 1);
+    ledcAttachPin(LED_1_B_PIN, 2);
+
+    /*pinMode(LED_1_R_PIN, OUTPUT);
+    pinMode(LED_1_G_PIN, OUTPUT);
     pinMode(LED_1_B_PIN, OUTPUT);
     pinMode(LED_2_R_PIN, OUTPUT);
     pinMode(LED_2_B_PIN, OUTPUT);
     pinMode(LED_3_R_PIN, OUTPUT);
     pinMode(LED_3_B_PIN, OUTPUT);
     pinMode(LED_4_R_PIN, OUTPUT);
-    pinMode(LED_4_B_PIN, OUTPUT);
+    pinMode(LED_4_B_PIN, OUTPUT);*/
 
     tickerManager(false);
     shutdownLed();
@@ -524,8 +556,31 @@ void setup() {
 
 void loop() {
     if (true == startApp) {
+        telegramBot.enableDebugMode();
+        //telegramBot.getMe();
+        int newMessage = telegramBot.getUpdates(telegramBot.getLastMessageId());
+
+        if (newMessage > 0) {
+            Message msg = telegramBot.getLastMessage(false);
+            logger(String(msg.id) + " - " + msg.text);
+
+            telegramBot.sendMessage(msg.chat.id, "Test sendMessage");
+        }
+        //Message msg = telegramBot.getLastMessage();
+
+        /*for (int i = 0; i < 3; i++) {
+            logger("Message id : " + String(msg[i].id));
+        }*/
+        /*Message msg = telegramBot.getLastMessage();
+        logger("\nChat id: " + String(msg.chat.id));
+        if (msg.chat.id != 0)
+        {
+            telegramBot.sendMessage(msg.chat.id, "Test sendMessage");
+        }
+        //logger(msg.text);
         delay(5000);
-        #if MQTT_ENABLE == true
+        logger("coucou");*/
+        /*#if MQTT_ENABLE == true
         if (true == config.mqttEnable) {
             if (!mqttClient.connected()) {
                 mqttConnect();
@@ -533,9 +588,9 @@ void loop() {
 
             mqttClient.loop();
         }
-        #endif
+        #endif*/
 
-        if (digitalRead(BTN_READ_PIN) == HIGH) {
+        /*if (digitalRead(BTN_READ_PIN) == HIGH) {
             if (false == messageIsReading) {
                 screen.writeCommand(ILI9341_SLPOUT);
                 readMessage();
@@ -587,9 +642,9 @@ void loop() {
                 resetConfig(configFilePath);
                 restart();
             }
-        }
+        }*/
 
-        if (millis() > telegramBotLasttime + CHECK_MSG_DELAY)  {
+        /*if (millis() > telegramBotLasttime + CHECK_MSG_DELAY)  {
             telegramBotLasttime = millis();
             logger(F("Checking for messages.. "));
             int numNewMessages = telegramBot.getUpdates(telegramBot.last_message_received + 1);
@@ -602,7 +657,7 @@ void loop() {
         #if OTA_ENABLE == true
             logger(F("Start ArduinoOTA handle"));
             ArduinoOTA.handle();
-        #endif
+        #endif*/
     } else {
         server.handleClient();
     }

@@ -6,7 +6,7 @@
     #define ARDUINOJSON_DECODE_UNICODE 1
 #endif
 #include <ArduinoJson.h>
-#include <UniversalTelegramBot.h>
+//#include <UniversalTelegramBot.h>
 #include <Ticker.h>
 #include <WebServer.h>
 #include <ESPTools.h>
@@ -16,7 +16,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
-//#include <TelegramBot.h>
+#include <TelegramBot.h>
 
 /* Conditional compilation */
 #define MQTT_ENABLE     false
@@ -33,19 +33,20 @@
 #define CHECK_MSG_DELAY 10000
 
 /* Leds pin */
-#define LED_1_R_PIN     10
-#define LED_1_B_PIN     11
-#define LED_2_R_PIN     12
+#define LED_1_R_PIN     32
+#define LED_1_G_PIN     35
+#define LED_1_B_PIN     34
+/*#define LED_2_R_PIN     12
 #define LED_2_B_PIN     13
 #define LED_3_R_PIN     14
 #define LED_3_B_PIN     15
 #define LED_4_R_PIN     16
-#define LED_4_B_PIN     17
+#define LED_4_B_PIN     17*/
 
 /* Button pin */
-#define BTN_READ_PIN    14
-#define BTN_RESTART_PIN 15
-#define BTN_RESET_PIN   16
+#define BTN_READ_PIN    21
+#define BTN_RESTART_PIN 16
+#define BTN_RESET_PIN   22
 
 /* TFT SCREEN */
 #define TFT_DC          4
