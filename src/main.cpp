@@ -320,20 +320,22 @@ void serverConfig() {
     }
 }*/
 
-/*void readMessage() {
+void displayMessage() {
     messageIsReading = true;
-    lastMessage.message.trim();
+    Message lastMessage = telegramBot.getLastMessage();
+    lastMessage.text.trim();
 
-    if (lastMessage.message == "") {
+    if (lastMessage.text == "") {
         logger(F("No new message"));
         // Display "Pas de nouveau message";
     } else {
         // Display message on screen
         logger(F("Display message on screen"));
-        screen.println(lastMessage.message);
+        clearScreen(screen);
+        screen.println(lastMessage.text);
 
         logger(F("Send confirmation read message to bot"));
-        telegramBot.sendSimpleMessage(lastMessage.chatId, "Message lu !", "");
+        telegramBot.sendMessage(lastMessage.chat.id, "Message lu !", "");
         tickerManager(false);
 
         #if MQTT_ENABLE == true
@@ -341,12 +343,8 @@ void serverConfig() {
             sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
             mqttClient.publish(config.mqttPublishChannel, response);
         #endif
-        
-        lastMessage.chatId = "";
-        lastMessage.name = "";
-        lastMessage.message = "";
     }
-}*/
+}
 
 /* ********** LEDS ********** */
 
@@ -355,38 +353,46 @@ void blinkLed() {
 
     if (false == ledStatus) {
         ledStatus = true;
-        value = 255;
     } else {
         ledStatus = false;
-        value = 0;
     }
 
     if (blinkColor == BLINK_BLUE) {
-        ledcWrite(0, 0);
-        ledcWrite(1, 0);
-        ledcWrite(2, value);
-        /*digitalWrite(LED_1_R_PIN, LOW);
-        digitalWrite(LED_1_G_PIN, LOW);
-        digitalWrite(LED_1_B_PIN, !digitalRead(LED_1_B_PIN));
-        digitalWrite(LED_2_R_PIN, LOW);
-        digitalWrite(LED_2_B_PIN, !digitalRead(LED_2_B_PIN));
-        digitalWrite(LED_3_R_PIN, LOW);
-        digitalWrite(LED_3_B_PIN, !digitalRead(LED_3_B_PIN));
-        digitalWrite(LED_4_R_PIN, LOW);
-        digitalWrite(LED_4_B_PIN, !digitalRead(LED_4_B_PIN));*/
+        if (true == ledStatus) {
+            for (int i = 0; i < 256; i++) {
+                ledcWrite(0, 0);
+                ledcWrite(1, 0);
+                ledcWrite(2, i);
+                delay(20);
+            }
+        } else {
+            for (int i = 255; i >= 0; i--) {
+                ledcWrite(0, 0);
+                ledcWrite(1, 0);
+                ledcWrite(2, i);
+                delay(20);
+            }
+        }
     } else {
         ledcWrite(0, value);
         ledcWrite(1, 0);
         ledcWrite(2, 0);
-        /*digitalWrite(LED_1_R_PIN, !digitalRead(LED_1_R_PIN));
-        digitalWrite(LED_1_G_PIN, LOW);
-        digitalWrite(LED_1_B_PIN, LOW);
-        digitalWrite(LED_2_R_PIN, !digitalRead(LED_2_B_PIN));
-        digitalWrite(LED_2_B_PIN, LOW);
-        digitalWrite(LED_3_R_PIN, !digitalRead(LED_3_B_PIN));
-        digitalWrite(LED_3_B_PIN, LOW);
-        digitalWrite(LED_4_R_PIN, !digitalRead(LED_4_B_PIN));
-        digitalWrite(LED_4_B_PIN, LOW);*/
+
+        if (true == ledStatus) {
+            for (int i = 0; i < 256; i++) {
+                ledcWrite(0, i);
+                ledcWrite(1, 0);
+                ledcWrite(2, 0);
+                delay(20);
+            }
+        } else {
+            for (int i = 255; i >= 0; i--) {
+                ledcWrite(0, i);
+                ledcWrite(1, 0);
+                ledcWrite(2, 0);
+                delay(20);
+            }
+        }
     }
 }
 
@@ -438,28 +444,27 @@ void setup() {
     screen.setFont();
     clearScreen(screen);
     screen.setTextColor(ILI9341_WHITE);
-    screen.setTextSize(1);
+    screen.setTextSize(2);
 
     screen.setCursor(0, 0);
     screen.println("Start in progress...");
 
-    ledcSetup(0, 5000, 8);
-    ledcSetup(1, 5000, 8);
-    ledcSetup(2, 5000, 8);
-    // attach the channel to the GPIO to be controlled
-    ledcAttachPin(LED_1_R_PIN, 0);
-    ledcAttachPin(LED_1_G_PIN, 1);
-    ledcAttachPin(LED_1_B_PIN, 2);
+    ledcSetup(LED_RED_CHAN, LED_FREQUENCY, LED_RES);
+    ledcSetup(LED_GREEN_CHAN, LED_FREQUENCY, LED_RES);
+    ledcSetup(LED_BLUE_CHAN, LED_FREQUENCY, LED_RES);
 
-    /*pinMode(LED_1_R_PIN, OUTPUT);
-    pinMode(LED_1_G_PIN, OUTPUT);
-    pinMode(LED_1_B_PIN, OUTPUT);
-    pinMode(LED_2_R_PIN, OUTPUT);
-    pinMode(LED_2_B_PIN, OUTPUT);
-    pinMode(LED_3_R_PIN, OUTPUT);
-    pinMode(LED_3_B_PIN, OUTPUT);
-    pinMode(LED_4_R_PIN, OUTPUT);
-    pinMode(LED_4_B_PIN, OUTPUT);*/
+    ledcAttachPin(LED_1_R_PIN, LED_RED_CHAN);
+    ledcAttachPin(LED_1_G_PIN, LED_GREEN_CHAN);
+    ledcAttachPin(LED_1_B_PIN, LED_BLUE_CHAN);
+    ledcAttachPin(LED_2_R_PIN, LED_RED_CHAN);
+    ledcAttachPin(LED_2_G_PIN, LED_GREEN_CHAN);
+    ledcAttachPin(LED_2_B_PIN, LED_BLUE_CHAN);
+    ledcAttachPin(LED_3_R_PIN, LED_RED_CHAN);
+    ledcAttachPin(LED_3_G_PIN, LED_GREEN_CHAN);
+    ledcAttachPin(LED_3_B_PIN, LED_BLUE_CHAN);
+    ledcAttachPin(LED_4_R_PIN, LED_RED_CHAN);
+    ledcAttachPin(LED_4_G_PIN, LED_GREEN_CHAN);
+    ledcAttachPin(LED_4_B_PIN, LED_BLUE_CHAN);
 
     tickerManager(false);
     shutdownLed();
@@ -556,16 +561,49 @@ void setup() {
 
 void loop() {
     if (true == startApp) {
+        #if MQTT_ENABLE == true
+            if (true == config.mqttEnable) {
+                if (!mqttClient.connected()) {
+                    mqttConnect();
+                }
+
+                mqttClient.loop();
+            }
+        #endif
+        /*if (digitalRead(BTN_RESTART_PIN) == HIGH) {
+            logger("BTN RESTART HIGH !");
+            tickerManager(true, BLINK_BLUE, 0.5);
+            restartRequested = millis();
+        }
+
+        if (restartRequested != 0) {
+            if (millis() - restartRequested >= DURATION_BEFORE_RESTART ) {
+                restart();
+            }
+        }*/
+
         telegramBot.enableDebugMode();
-        //telegramBot.getMe();
         int newMessage = telegramBot.getUpdates(telegramBot.getLastMessageId());
+
+        if (newMessage > 0) {
+            /*Message msg = telegramBot.getLastMessage();
+            logger(String(msg.id) + " - " + msg.text);
+            screen.println(msg.text);
+            tickerManager(true, BLINK_RED, 2);
+            telegramBot.sendMessage(msg.chat.id, "Test sendMessage");*/
+            displayMessage();
+        }
+
+        delay(5000);
+        //telegramBot.getMe();
+        /*int newMessage = telegramBot.getUpdates(telegramBot.getLastMessageId());
 
         if (newMessage > 0) {
             Message msg = telegramBot.getLastMessage(false);
             logger(String(msg.id) + " - " + msg.text);
-
+            screen.println(msg.text);
             telegramBot.sendMessage(msg.chat.id, "Test sendMessage");
-        }
+        }*/
         //Message msg = telegramBot.getLastMessage();
 
         /*for (int i = 0; i < 3; i++) {
@@ -580,36 +618,27 @@ void loop() {
         //logger(msg.text);
         delay(5000);
         logger("coucou");*/
-        /*#if MQTT_ENABLE == true
-        if (true == config.mqttEnable) {
-            if (!mqttClient.connected()) {
-                mqttConnect();
-            }
 
-            mqttClient.loop();
-        }
-        #endif*/
-
-        /*if (digitalRead(BTN_READ_PIN) == HIGH) {
+        /*if (digitalRead(BTN_READ_PIN) == LOW) {
             if (false == messageIsReading) {
                 screen.writeCommand(ILI9341_SLPOUT);
                 readMessage();
             }
         }
 
-        if (digitalRead(BTN_READ_PIN) == LOW) {
+        if (digitalRead(BTN_READ_PIN) == HIGH) {
             if (true == messageIsReading) {
                 screen.fillScreen(ILI9341_BLACK);
                 screen.writeCommand(ILI9341_SLPIN);
             }
         }
 
-        if (digitalRead(BTN_RESTART_PIN) == HIGH) {
+        if (digitalRead(BTN_RESET_PIN) == LOW) {
             tickerManager(true, BLINK_BLUE, 0.5);
             restartRequested = millis();
         }
 
-        if (digitalRead(BTN_RESTART_PIN) == HIGH && previousResetBtnState == LOW) {
+        if (digitalRead(BTN_RESET_PIN) == HIGH && previousResetBtnState == LOW) {
             previousResetBtnState = HIGH;
             resetBtnDuration = millis();
         }
@@ -623,9 +652,9 @@ void loop() {
                 tickerManager(true, BLINK_RED, 0.5);
                 resetRequested = millis();
             }
-        }
+        }*/
 
-        if (digitalRead(BTN_RESTART_PIN) == LOW) {
+        /*if (digitalRead(BTN_RESTART_PIN) == LOW) {
             previousResetBtnState = LOW;
             resetBtnDuration = 0;
             resetRequested = 0;
@@ -635,9 +664,9 @@ void loop() {
             if (millis() - restartRequested >= DURATION_BEFORE_RESTART ) {
                 restart();
             }
-        }
+        }*/
 
-        if (resetRequested != 0) {
+        /*if (resetRequested != 0) {
             if (millis() - resetRequested >= DURATION_BEFORE_RESET) {
                 resetConfig(configFilePath);
                 restart();

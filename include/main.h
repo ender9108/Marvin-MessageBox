@@ -6,7 +6,6 @@
     #define ARDUINOJSON_DECODE_UNICODE 1
 #endif
 #include <ArduinoJson.h>
-//#include <UniversalTelegramBot.h>
 #include <Ticker.h>
 #include <WebServer.h>
 #include <ESPTools.h>
@@ -36,12 +35,15 @@
 #define LED_1_R_PIN     32
 #define LED_1_G_PIN     35
 #define LED_1_B_PIN     34
-/*#define LED_2_R_PIN     12
-#define LED_2_B_PIN     13
-#define LED_3_R_PIN     14
-#define LED_3_B_PIN     15
-#define LED_4_R_PIN     16
-#define LED_4_B_PIN     17*/
+#define LED_2_R_PIN     33
+#define LED_2_G_PIN     25
+#define LED_2_B_PIN     26
+#define LED_3_R_PIN     26
+#define LED_3_G_PIN     27
+#define LED_3_B_PIN     14
+#define LED_4_R_PIN     12
+#define LED_4_G_PIN     13
+#define LED_4_B_PIN     16
 
 /* Button pin */
 #define BTN_READ_PIN    21
@@ -58,6 +60,13 @@
 
 #define BLINK_RED       9
 #define BLINK_BLUE      1
+
+#define LED_RED_CHAN    0
+#define LED_GREEN_CHAN  1
+#define LED_BLUE_CHAN   2
+
+#define LED_FREQUENCY   5000
+#define LED_RES         8
 
 #if MQTT_ENABLE == true
     // @todo See large message method in exemple

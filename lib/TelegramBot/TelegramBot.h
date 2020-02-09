@@ -93,8 +93,8 @@ class TelegramBot {
         User getMe();
         int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_MSG);
         bool sendMessage(long chatId, String text, String parseMode = "", bool disablePreview = false, long replyToMessageId = 0, bool disableNotification = false);
-        Message* getMessages(bool forceUpdate = true);
-        Message getLastMessage(bool forceUpdate = true);
+        Message* getMessages(bool forceUpdate = false);
+        Message getLastMessage(bool forceUpdate = false);
         long getLastMessageId();
 
         bool sendContact(long chatId, String phoneNumber, String firstName, String lastName = "", long replyToMessageId = 0, bool disableNotification = false);

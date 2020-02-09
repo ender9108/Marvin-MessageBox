@@ -1,6 +1,6 @@
 {
-    "wifiSsid": "Livebox-D1BD",
-    "wifiPassword": "962607AA57F5051A7F86F9639A",
+    "wifiSsid": "",
+    "wifiPassword": "",
     "mqttHost": "",
     "mqttPort": 1883,
     "mqttUsername": "",

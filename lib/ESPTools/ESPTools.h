@@ -17,6 +17,6 @@ void logger(String message, bool endLine = true);
 
 void restart();
 
-void printCenterText(Adafruit_ILI9341 screen, const char *string, uint8_t txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
-void printCenterText(Adafruit_ILI9341 screen, String *string, uint8_t txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
+void printCenterText(Adafruit_ILI9341 screen, const char *string, int txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
+void printCenterText(Adafruit_ILI9341 screen, String *string, int txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
 void clearScreen(Adafruit_ILI9341 screen);
