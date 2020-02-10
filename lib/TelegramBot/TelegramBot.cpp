@@ -51,7 +51,7 @@ int TelegramBot::loop() {
       int newMessage = this->getUpdates(this->lastUpdateId);
 
       if (newMessage > 0 && this->onNewMessage != NULL) {
-        this->onNewMessage(this->messages[0], this->lastUpdateId);
+        this->onNewMessage(this->messages, this->lastUpdateId);
       }
 
       return newMessage;

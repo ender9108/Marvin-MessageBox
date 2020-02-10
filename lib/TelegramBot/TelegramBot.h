@@ -42,7 +42,7 @@ struct Message {
 
 typedef bool (*DataAvailable)();
 typedef byte (*GetNextByte)();
-typedef void (*EventCallback)(Message msg, long updateId);
+typedef void (*EventCallback)(Message *msg, long lastUpdateId);
 
 /*
 'message_id' => true,
