@@ -324,18 +324,24 @@ void displayMessage() {
     messageIsReading = true;
     Message lastMessage = telegramBot.getLastMessage();
     lastMessage.text.trim();
+    screen.writeCommand(ILI9341_SLPOUT);
+    clearScreen(screen);
 
     if (lastMessage.text == "") {
         logger(F("No new message"));
+        screen.println("Pas de nouveau message.");
         // Display "Pas de nouveau message";
     } else {
         // Display message on screen
         logger(F("Display message on screen"));
-        clearScreen(screen);
         screen.println(lastMessage.text);
 
         logger(F("Send confirmation read message to bot"));
-        telegramBot.sendMessage(lastMessage.chat.id, "Message lu !", "");
+
+        if (!telegramBot.sendMessage(lastMessage.chat.id, "Message lu !", "")) {
+            logger(F("Send confirmation message error."));
+        }
+
         tickerManager(false);
 
         #if MQTT_ENABLE == true
@@ -582,8 +588,11 @@ void loop() {
             }
         }*/
 
-        telegramBot.enableDebugMode();
-        int newMessage = telegramBot.getUpdates(telegramBot.getLastMessageId());
+        #if DEBUG == true
+            telegramBot.enableDebugMode();
+        #endif
+
+        int newMessage = telegramBot.loop();
 
         if (newMessage > 0) {
             /*Message msg = telegramBot.getLastMessage();
@@ -591,38 +600,13 @@ void loop() {
             screen.println(msg.text);
             tickerManager(true, BLINK_RED, 2);
             telegramBot.sendMessage(msg.chat.id, "Test sendMessage");*/
-            displayMessage();
+            //displayMessage();
         }
 
-        delay(5000);
-        //telegramBot.getMe();
-        /*int newMessage = telegramBot.getUpdates(telegramBot.getLastMessageId());
-
-        if (newMessage > 0) {
-            Message msg = telegramBot.getLastMessage(false);
-            logger(String(msg.id) + " - " + msg.text);
-            screen.println(msg.text);
-            telegramBot.sendMessage(msg.chat.id, "Test sendMessage");
-        }*/
-        //Message msg = telegramBot.getLastMessage();
-
-        /*for (int i = 0; i < 3; i++) {
-            logger("Message id : " + String(msg[i].id));
-        }*/
-        /*Message msg = telegramBot.getLastMessage();
-        logger("\nChat id: " + String(msg.chat.id));
-        if (msg.chat.id != 0)
-        {
-            telegramBot.sendMessage(msg.chat.id, "Test sendMessage");
-        }
-        //logger(msg.text);
-        delay(5000);
-        logger("coucou");*/
 
         /*if (digitalRead(BTN_READ_PIN) == LOW) {
             if (false == messageIsReading) {
-                screen.writeCommand(ILI9341_SLPOUT);
-                readMessage();
+                displayMessage();
             }
         }
 

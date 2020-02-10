@@ -29,8 +29,39 @@ void TelegramBot::logger(String message, bool endLine) {
   }
 }
 
-long TelegramBot::getLastMessageId() {
-  return this->lastMessageId;
+bool TelegramBot::on(int event, EventCallback callback) {
+  switch (event) {
+    case TELEGRAM_EVT_NEW_MSG:
+      this->onNewMessage = callback;
+      return true;
+      break;
+    default:
+      this->logger("Uncknow " + String(event) + " event");
+      break;
+  }
+
+  return false;
+}
+
+int TelegramBot::loop() {
+  if (millis() > this->lastUpdateTime + TELEGRAM_TTR)  {
+      this->lastUpdateTime = millis();
+      this->logger(F("Checking for messages.. "));
+
+      int newMessage = this->getUpdates(this->lastUpdateId);
+
+      if (newMessage > 0 && this->onNewMessage != NULL) {
+        this->onNewMessage(this->messages[0], this->lastUpdateId);
+      }
+
+      return newMessage;
+  }
+
+  return 0;
+}
+
+long TelegramBot::getLastUpdateId() {
+  return this->lastUpdateId;
 }
 
 User TelegramBot::getMe() {
@@ -87,7 +118,7 @@ int TelegramBot::getUpdates(int offset, int limit) {
 
 Message* TelegramBot::getMessages(bool forceUpdate) {
   if (true == forceUpdate) {
-    this->getUpdates(this->lastMessageId);
+    this->getUpdates(this->lastUpdateId);
   }
 
   return this->messages;
@@ -95,7 +126,7 @@ Message* TelegramBot::getMessages(bool forceUpdate) {
 
 Message TelegramBot::getLastMessage(bool forceUpdate) {
   if (true == forceUpdate) {
-    this->getUpdates(this->lastMessageId);
+    this->getUpdates(this->lastUpdateId);
   }
 
   return this->messages[0];
@@ -128,10 +159,10 @@ bool TelegramBot::sendMessage(
 bool TelegramBot::hydrateMessageStruct(JsonObject message, int index) {
   int updateId = message["update_id"];
 
-  logger("lastMessageId: " + String(this->lastMessageId) + " - updateId: " + String(updateId));
+  logger("lastUpdateId: " + String(this->lastUpdateId) + " - updateId: " + String(updateId));
 
-  if (this->lastMessageId != updateId) {
-    this->lastMessageId = updateId;
+  if (this->lastUpdateId != updateId) {
+    this->lastUpdateId = updateId;
 
     for (int i = (TELEGRAM_MAX_MSG-2); i >= 0; i--) {
       this->messages[(i+1)] = this->messages[i];

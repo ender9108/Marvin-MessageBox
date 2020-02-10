@@ -8,12 +8,12 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 
-#define TELEGRAM_HOST       "api.telegram.org"
-#define TELEGRAM_PORT       443
-#define TELEGRAM_MAX_MSG    3
+#define TELEGRAM_HOST           "api.telegram.org"
+#define TELEGRAM_PORT           443
+#define TELEGRAM_MAX_MSG        3
+#define TELEGRAM_TTR            10000
 
-typedef bool (*DataAvailable)();
-typedef byte (*GetNextByte)();
+#define TELEGRAM_EVT_NEW_MSG    1
 
 struct User {
     long id;
@@ -39,6 +39,10 @@ struct Message {
     float latitude;
     String type;
 };
+
+typedef bool (*DataAvailable)();
+typedef byte (*GetNextByte)();
+typedef void (*EventCallback)(Message msg, long updateId);
 
 /*
 'message_id' => true,
@@ -95,7 +99,9 @@ class TelegramBot {
         bool sendMessage(long chatId, String text, String parseMode = "", bool disablePreview = false, long replyToMessageId = 0, bool disableNotification = false);
         Message* getMessages(bool forceUpdate = false);
         Message getLastMessage(bool forceUpdate = false);
-        long getLastMessageId();
+        long getLastUpdateId();
+        int loop();
+        bool on(int event, EventCallback callback);
 
         bool sendContact(long chatId, String phoneNumber, String firstName, String lastName = "", long replyToMessageId = 0, bool disableNotification = false);
         bool sendChatAction(long chatId, String action);
@@ -112,7 +118,9 @@ class TelegramBot {
         User botUser;
         Message messages[TELEGRAM_MAX_MSG];
         String baseAction;
-        long lastMessageId = 0;
+        long lastUpdateId = 0;
+        long lastUpdateTime = 0;
+        EventCallback onNewMessage;
         DynamicJsonDocument sendGetCommand(String action);
         DynamicJsonDocument sendPostCommand(String action, JsonObject payload);
         DynamicJsonDocument buildJsonResponseError(int statusCode, String message);
