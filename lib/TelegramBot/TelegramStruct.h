@@ -78,3 +78,36 @@ struct Message {
 'invoice' => Invoice::class,
 'successful_payment' => SuccessfulPayment::class,
 */
+
+struct InlineQuery {
+
+};
+
+struct ChosenInlineResult {
+
+};
+
+struct CallbackQuery {
+
+};
+
+struct ShippingQuery {
+
+};
+
+struct PreCheckoutQuery {
+
+};
+
+struct Update {
+    long updateId;
+    Message message;
+    Message editedMessage;
+    Message channelPost;
+    Message editedChannelPost;
+    InlineQuery inlineQuery;
+    ChosenInlineResult chosenInlineResult;
+    CallbackQuery callbackQuery;
+    ShippingQuery shippingQuery;
+    PreCheckoutQuery preCheckoutQuery;
+};
