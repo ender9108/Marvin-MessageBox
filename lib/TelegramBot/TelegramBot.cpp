@@ -132,7 +132,7 @@ Message TelegramBot::getLastMessage(bool forceUpdate) {
   return this->messages[0];
 }
 
-bool TelegramBot::sendMessage(
+DynamicJsonDocument TelegramBot::sendMessage(
   long chatId, 
   String text, 
   String parseMode, 
@@ -153,7 +153,202 @@ bool TelegramBot::sendMessage(
 
   DynamicJsonDocument response = this->sendPostCommand("sendMessage", postData);
 
-  return response["ok"];
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::sendContact(
+  long chatId, 
+  String phoneNumber, 
+  String firstName, 
+  String lastName, 
+  long replyToMessageId, 
+  bool disableNotification
+) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["phone_number"] = phoneNumber;
+  postData["first_name"] = firstName;
+  postData["last_name"] = lastName;
+  postData["reply_to_message_id"] = replyToMessageId;
+  postData["disable_notification"] = disableNotification;
+
+  DynamicJsonDocument response = this->sendPostCommand("sendContact", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::sendChatAction(long chatId, String action) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(2);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["action"] = action;
+
+  DynamicJsonDocument response = this->sendPostCommand("sendChatAction", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::sendLocation(
+  long chatId, 
+  float latitude, 
+  float longitude, 
+  long replyToMessageId, 
+  bool disableNotification, 
+  int livePeriod
+) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["latitude"] = latitude;
+  postData["longitude"] = longitude;
+  postData["reply_to_message_id"] = replyToMessageId;
+  postData["disable_notification"] = disableNotification;
+  postData["live_period"] = livePeriod;
+
+  DynamicJsonDocument response = this->sendPostCommand("sendLocation", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::editMessageReplyMarkup(long chatId, long messageId, long inlineMessageId) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(3);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["message_id"] = messageId;
+  postData["inline_message_id"] = inlineMessageId;
+
+  DynamicJsonDocument response = this->sendPostCommand("editMessageReplyMarkup", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::deleteMessage(long chatId, long messageId) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(2);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["message_id"] = messageId;
+
+  DynamicJsonDocument response = this->sendPostCommand("deleteMessage", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::editMessageLiveLocation(long chatId, long messageId, long inlineMessageId, float latitude, float longitude) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(5);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["message_id"] = messageId;
+  postData["inline_message_id"] = inlineMessageId;
+  postData["latitude"] = latitude;
+  postData["longitude"] = longitude;
+
+  DynamicJsonDocument response = this->sendPostCommand("editMessageLiveLocation", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::stopMessageLiveLocation(long chatId, long messageId, long inlineMessageId) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(3);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["message_id"] = messageId;
+  postData["inline_message_id"] = inlineMessageId;
+
+  DynamicJsonDocument response = this->sendPostCommand("stopMessageLiveLocation", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::forwardMessage(long chatId, long fromChatId, long messageId, bool disableNotification) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(4);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["from_chat_id"] = messageId;
+  postData["message_id"] = messageId;
+  postData["disable_notification"] = disableNotification;
+
+  DynamicJsonDocument response = this->sendPostCommand("forwardMessage", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::kickChatMember(long chatId, long userId, long untilDate) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(3);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["user_id"] = userId;
+
+  if (untilDate != -1) {
+    postData["until_date"] = untilDate;
+  }
+
+  DynamicJsonDocument response = this->sendPostCommand("kickChatMember", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::unbanChatMember(long chatId, long userId) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(2);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["user_id"] = userId;
+
+  DynamicJsonDocument response = this->sendPostCommand("unbanChatMember", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::editMessageText(long chatId, long messageId, String text, String parseMode, bool disablePreview, long inlineMessageId) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["message_id"] = messageId;
+  postData["text"] = text;
+  postData["parse_mode"] = parseMode;
+  postData["disable_preview"] = disablePreview;
+  postData["inline_message_id"] = inlineMessageId;
+
+  DynamicJsonDocument response = this->sendPostCommand("editMessageText", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::editMessageCaption(long chatId, long messageId, String caption, long inlineMessageId) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(4);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["message_id"] = messageId;
+  postData["caption"] = caption;
+  postData["inline_message_id"] = inlineMessageId;
+
+  DynamicJsonDocument response = this->sendPostCommand("editMessageCaption", postData);
+
+  return response;
 }
 
 bool TelegramBot::hydrateMessageStruct(JsonObject message, int index) {
@@ -167,9 +362,6 @@ bool TelegramBot::hydrateMessageStruct(JsonObject message, int index) {
     for (int i = (TELEGRAM_MAX_MSG-2); i >= 0; i--) {
       this->messages[(i+1)] = this->messages[i];
     }
-    /*for (int i = 0; i < (TELEGRAM_MAX_MSG-1); i++) {
-      this->messages[(i+1)] = this->messages[i];
-    }*/
 
     this->messages[0].id = message["message"]["message_id"].as<int>();
     this->messages[0].date = message["message"]["date"].as<int>();

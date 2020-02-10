@@ -320,11 +320,7 @@ void displayNewMessage() {
         screen.println(lastMessage.text);
 
         logger(F("Send confirmation read message to bot"));
-
-        if (!telegramBot.sendMessage(lastMessage.chat.id, "Message lu !", "")) {
-            logger(F("Send confirmation message error."));
-        }
-
+        telegramBot.sendMessage(lastMessage.chat.id, "Message lu !", "");
         tickerManager(false);
 
         #if MQTT_ENABLE == true
