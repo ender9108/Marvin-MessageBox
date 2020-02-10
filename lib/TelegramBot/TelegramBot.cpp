@@ -66,23 +66,20 @@ long TelegramBot::getLastUpdateId() {
 
 User TelegramBot::getMe() {
   this->logger("Start getMe");
-  DynamicJsonDocument response = this->sendGetCommand("getMe");
+  DynamicJsonDocument document = this->sendGetCommand("getMe");
   
   if (this->debugMode) {
-    serializeJson(response, Serial);
+    serializeJson(document, Serial);
     this->logger("");
   }
 
-  if (response.containsKey("ok") && response["ok"] == false) {
-    this->logger(response["message"]);
+  if (document.containsKey("ok") && document["ok"] == false) {
+    this->logger(document["message"]);
   }
 
-  this->botUser.id = response["id"].as<int>();
-  this->botUser.firstName = response["first_name"].as<String>();
-  this->botUser.lastName = response["last_name"].as<String>();
-  this->botUser.username = response["username"].as<String>();
-  this->botUser.languageCode = response["language_code"].as<String>();
-  this->botUser.isBot = response["is_bot"].as<bool>();
+  JsonObject response = document.to<JsonObject>();
+
+  this->botUser = this->hydrateUserStruct(response);
 
   return this->botUser;
 }
@@ -102,7 +99,7 @@ int TelegramBot::getUpdates(int offset, int limit) {
       int messageIndex = 0;
 
       for (int i = 0; i < size; i++) {
-        if (this->hydrateMessageStruct(response["result"][i], messageIndex)) {
+        if (this->parseMessages(response["result"][i], messageIndex)) {
           messageIndex++;
         }
       }
@@ -351,10 +348,54 @@ DynamicJsonDocument TelegramBot::editMessageCaption(long chatId, long messageId,
   return response;
 }
 
-bool TelegramBot::hydrateMessageStruct(JsonObject message, int index) {
-  int updateId = message["update_id"];
+DynamicJsonDocument TelegramBot::sendPhoto(
+  long chatId, 
+  String photo, 
+  String caption, 
+  long replyToMessageId, 
+  bool disableNotification, 
+  String parseMode
+) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
+  StaticJsonDocument<CAPACITY> doc;
 
-  logger("lastUpdateId: " + String(this->lastUpdateId) + " - updateId: " + String(updateId));
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["photo"] = photo;
+  postData["caption"] = caption;
+  postData["reply_to_messageId"] = replyToMessageId;
+  postData["disable_notification"] = disableNotification;
+  postData["parse_mode"] = parseMode;
+
+  DynamicJsonDocument response = this->sendPostCommand("editMessageCaption", postData);
+
+  return response;
+}
+
+DynamicJsonDocument TelegramBot::sendDocument(
+  long chatId, 
+  String document, 
+  String caption, 
+  long replyToMessageId, 
+  bool disableNotification, 
+  String parseMode
+) {
+  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
+  StaticJsonDocument<CAPACITY> doc;
+
+  JsonObject postData = doc.to<JsonObject>();
+  postData["chat_id"] = chatId;
+  postData["document"] = document;
+  postData["caption"] = caption;
+  postData["reply_to_messageId"] = replyToMessageId;
+  postData["disable_notification"] = disableNotification;
+  postData["parse_mode"] = parseMode;
+
+  return this->sendPostCommand("sendDocument", postData);
+}
+
+bool TelegramBot::parseMessages(JsonObject message, int index) {
+  int updateId = message["update_id"];
 
   if (this->lastUpdateId != updateId) {
     this->lastUpdateId = updateId;
@@ -363,28 +404,45 @@ bool TelegramBot::hydrateMessageStruct(JsonObject message, int index) {
       this->messages[(i+1)] = this->messages[i];
     }
 
-    this->messages[0].id = message["message"]["message_id"].as<int>();
-    this->messages[0].date = message["message"]["date"].as<int>();
-    this->messages[0].text = message["message"]["text"].as<String>();
-    this->messages[0].type = message["message"]["entities"]["type"].as<String>();
-
-    User user;
-    user.id = message["message"]["from"]["id"].as<int>();
-    user.firstName = message["message"]["from"]["first_name"].as<String>();
-    user.lastName = message["message"]["from"]["last_name"].as<String>();
-    user.username = message["message"]["from"]["username"].as<String>();
-    user.languageCode = message["message"]["from"]["language_code"].as<String>();
-    user.isBot = message["message"]["from"]["is_bot"].as<bool>();
-    this->messages[0].from = user;
-
-    Chat chat;
-    chat.id = message["message"]["chat"]["id"].as<int>();
-    this->messages[0].chat = chat;
+    this->messages[0] = this->hydrateMessageStruct(message["message"]);
 
     return true;
   }
 
   return false;
+}
+
+Message TelegramBot::hydrateMessageStruct(JsonObject jsonMessage) {
+  Message msg;
+
+  msg.id = jsonMessage["message_id"].as<int>();
+  msg.date = jsonMessage["date"].as<int>();
+  msg.text = jsonMessage["text"].as<String>();
+  //msg.type = jsonMessage["entities"]["type"].as<String>();
+
+  msg.from = this->hydrateUserStruct(jsonMessage["from"]);
+  msg.chat = this->hydrateChatStruct(jsonMessage["chat"]);
+
+  return msg;
+}
+
+User TelegramBot::hydrateUserStruct(JsonObject jsonUser) {
+  User user;
+  user.id = jsonUser["id"].as<int>();
+  user.firstName = jsonUser["first_name"].as<String>();
+  user.lastName = jsonUser["last_name"].as<String>();
+  user.username = jsonUser["username"].as<String>();
+  user.languageCode = jsonUser["language_code"].as<String>();
+  user.isBot = jsonUser["is_bot"].as<bool>();
+
+  return user;
+}
+
+Chat TelegramBot::hydrateChatStruct(JsonObject jsonChat) {
+  Chat chat;
+  chat.id = jsonChat["id"];
+
+  return chat;
 }
 
 DynamicJsonDocument TelegramBot::sendGetCommand(String action) {
