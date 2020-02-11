@@ -275,28 +275,27 @@ void serverConfig() {
 }
 
 /* ********** TELEGRAM ********** */
-void handlerNewMessage(Message *msg, long lastUpdateId) {
-    for (int i = (TELEGRAM_MAX_MSG-1); i >= 0; i--) {
-        if (msg[i].id != 0) {
-            logger("Message content :" + msg[i].text);
-
-            if (msg[i].text.indexOf("/message") == 0) {
+void handlerNewMessage(Update *update, int newMessages) {
+    for (int i = (newMessages-1); i >= 0; i--) {
+        if (update[i].message.id != 0) {
+            logger("Message content :" + update[i].message.text);
+            logger("IndexOf /message: ", false);
+            logger(String(update[i].message.text.indexOf("/message")));
+            if (update[i].message.text.indexOf("/message") == 0) {
                 logger(F("New message !"));
-                tickerManager(true, BLINK_RED, 2);
+                tickerManager(true, 1);
 
-                telegramBot.sendMessage(msg[i].chat.id, "Message reçu. En attente de lecture.", "");
+                telegramBot.sendMessage(update[i].message.chat.id, "Message reçu. En attente de lecture.");
                 #if MQTT_ENABLE == true
                     char response[256];
                     sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"newMessageReceived\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
                     mqttClient.publish(config.mqttPublishChannel, response);
                 #endif
-            }
-
-            if (msg[i].text.indexOf("/start") == 0) {
+            } else if (update[i].message.text.indexOf("/start") == 0) {
                 logger(F("Send message to telegram bot (action called : /start)"));
-                String welcome = "Welcome to MessageBox, " + msg[i].from.firstName + ".\n";
+                String welcome = "Welcome to MessageBox, " + update[i].message.from.firstName + ".\n";
                 welcome += "/message [MY_TEXT] : to send message in this box !\n";
-                telegramBot.sendMessage(msg[i].chat.id, welcome, "Markdown");
+                telegramBot.sendMessage(update[i].message.chat.id, welcome, "Markdown");
             }
         }
     }
@@ -304,23 +303,24 @@ void handlerNewMessage(Message *msg, long lastUpdateId) {
 
 void displayNewMessage() {
     messageIsReading = true;
-    Message lastMessage = telegramBot.getLastMessage();
-    lastMessage.text.replace("/message", "");
-    lastMessage.text.trim();
-    screen.writeCommand(ILI9341_SLPOUT);
+    logger("displayNewMessage !");
+    Update lastUpdate = telegramBot.getLastUpdate();
+    lastUpdate.message.text.replace("/message", "");
+    lastUpdate.message.text.trim();
+    //screen.writeCommand(ILI9341_SLPOUT);
     clearScreen(screen);
+    screen.setCursor(0, 0);
 
-    if (lastMessage.text == "") {
+    if (lastUpdate.message.text == "") {
         logger(F("No new message"));
         screen.println("Pas de nouveau message.");
-        // Display "Pas de nouveau message";
     } else {
         // Display message on screen
         logger(F("Display message on screen"));
-        screen.println(lastMessage.text);
+        screen.println(lastUpdate.message.text);
 
         logger(F("Send confirmation read message to bot"));
-        telegramBot.sendMessage(lastMessage.chat.id, "Message lu !", "");
+        telegramBot.sendMessage(lastUpdate.message.chat.id, "Message lu");
         tickerManager(false);
 
         #if MQTT_ENABLE == true
@@ -334,62 +334,40 @@ void displayNewMessage() {
 /* ********** LEDS ********** */
 
 void blinkLed() {
-    int value = 0;
-
     if (false == ledStatus) {
         ledStatus = true;
     } else {
         ledStatus = false;
     }
 
-    if (blinkColor == BLINK_BLUE) {
-        if (true == ledStatus) {
-            for (int i = 0; i < 256; i++) {
-                ledcWrite(LED_RED_CHAN, 0);
-                ledcWrite(LED_GREEN_CHAN, 0);
-                ledcWrite(LED_BLUE_CHAN, i);
-                delay(20);
-            }
-        } else {
-            for (int i = 255; i >= 0; i--) {
-                ledcWrite(LED_RED_CHAN, 0);
-                ledcWrite(LED_GREEN_CHAN, 0);
-                ledcWrite(LED_BLUE_CHAN, i);
-                delay(20);
-            }
+    if (true == ledStatus) {
+        for (int i = 0; i < 256; i++) {
+            ledcWrite(LED_CHAN_0, i);
+            ledcWrite(LED_CHAN_1, i);
+            ledcWrite(LED_CHAN_2, i);
+            ledcWrite(LED_CHAN_3, i);
+            delay(25);
         }
     } else {
-        ledcWrite(LED_RED_CHAN, value);
-        ledcWrite(LED_GREEN_CHAN, 0);
-        ledcWrite(LED_BLUE_CHAN, 0);
-
-        if (true == ledStatus) {
-            for (int i = 0; i < 256; i++) {
-                ledcWrite(LED_RED_CHAN, i);
-                ledcWrite(LED_GREEN_CHAN, 0);
-                ledcWrite(LED_BLUE_CHAN, 0);
-                delay(20);
-            }
-        } else {
-            for (int i = 255; i >= 0; i--) {
-                ledcWrite(LED_RED_CHAN, i);
-                ledcWrite(LED_GREEN_CHAN, 0);
-                ledcWrite(LED_BLUE_CHAN, 0);
-                delay(20);
-            }
+        for (int i = 255; i >= 0; i--) {
+            ledcWrite(LED_CHAN_0, i);
+            ledcWrite(LED_CHAN_1, i);
+            ledcWrite(LED_CHAN_2, i);
+            ledcWrite(LED_CHAN_3, i);
+            delay(25);
         }
     }
 }
 
 void shutdownLed() {
-    ledcWrite(LED_RED_CHAN, 0);
-    ledcWrite(LED_GREEN_CHAN, 0);
-    ledcWrite(LED_BLUE_CHAN, 0);
+    ledcWrite(LED_CHAN_0, 0);
+    ledcWrite(LED_CHAN_1, 0);
+    ledcWrite(LED_CHAN_2, 0);
+    ledcWrite(LED_CHAN_3, 0);
 }
 
-void tickerManager(bool start, unsigned int status, float timer) {
+void tickerManager(bool start, float timer) {
     shutdownLed();
-    blinkColor = status;
 
     if (true == start) {
         logger(F("Start ticker !"));
@@ -423,23 +401,16 @@ void setup() {
     screen.setCursor(0, 0);
     screen.println("Start in progress...");
 
-    ledcSetup(LED_RED_CHAN, LED_FREQUENCY, LED_RES);
-    ledcSetup(LED_GREEN_CHAN, LED_FREQUENCY, LED_RES);
-    ledcSetup(LED_BLUE_CHAN, LED_FREQUENCY, LED_RES);
+    ledcSetup(LED_CHAN_0, LED_FREQUENCY, LED_RES);
+    ledcSetup(LED_CHAN_1, LED_FREQUENCY, LED_RES);
+    ledcSetup(LED_CHAN_2, LED_FREQUENCY, LED_RES);
+    ledcSetup(LED_CHAN_3, LED_FREQUENCY, LED_RES);
 
-    ledcAttachPin(LED_1_R_PIN, LED_RED_CHAN);
-    ledcAttachPin(LED_1_G_PIN, LED_GREEN_CHAN);
-    ledcAttachPin(LED_1_B_PIN, LED_BLUE_CHAN);
-    ledcAttachPin(LED_2_R_PIN, LED_RED_CHAN);
-    ledcAttachPin(LED_2_G_PIN, LED_GREEN_CHAN);
-    ledcAttachPin(LED_2_B_PIN, LED_BLUE_CHAN);
-    ledcAttachPin(LED_3_R_PIN, LED_RED_CHAN);
-    ledcAttachPin(LED_3_G_PIN, LED_GREEN_CHAN);
-    ledcAttachPin(LED_3_B_PIN, LED_BLUE_CHAN);
-    ledcAttachPin(LED_4_R_PIN, LED_RED_CHAN);
-    ledcAttachPin(LED_4_G_PIN, LED_GREEN_CHAN);
-    ledcAttachPin(LED_4_B_PIN, LED_BLUE_CHAN);
-
+    ledcAttachPin(LED_1, LED_CHAN_0);
+    ledcAttachPin(LED_2, LED_CHAN_1);
+    ledcAttachPin(LED_3, LED_CHAN_2);
+    ledcAttachPin(LED_4, LED_CHAN_3);
+    
     tickerManager(false);
     shutdownLed();
 
@@ -481,7 +452,7 @@ void setup() {
     }
 
     if (false == startApp) {
-        tickerManager(true, BLINK_RED, 2);
+        tickerManager(true, 2);
         WiFi.mode(WIFI_AP);
         WiFi.softAP(wifiApSsid, wifiApPassw);
         WiFi.setHostname(hostname);
@@ -552,14 +523,16 @@ void loop() {
 
         telegramBot.loop();
 
-        if (digitalRead(BTN_RESTART_PIN) == LOW) {
+        /*if (digitalRead(BTN_RESTART_PIN) == LOW) {
             logger("Button restart pressed !");
-            tickerManager(true, BLINK_BLUE, 0.5);
+            tickerManager(true, 0.5);
             restartRequested = millis();
         }
 
         if (restartRequested != 0) {
             if (millis() - restartRequested >= DURATION_BEFORE_RESTART ) {
+                tickerManager(false);
+                shutdownLed();
                 restart();
             }
         }
@@ -572,8 +545,9 @@ void loop() {
 
         if (digitalRead(BTN_READ_PIN) == HIGH) {
             if (true == messageIsReading) {
+                messageIsReading = false;
                 screen.fillScreen(ILI9341_BLACK);
-                screen.writeCommand(ILI9341_SLPIN);
+                //screen.writeCommand(ILI9341_SLPIN);
             }
         }
 
@@ -588,7 +562,7 @@ void loop() {
             previousResetBtnState == LOW
         ) {
             if (millis() - resetBtnDuration >= DURATION_BTN_RESET_PRESS) {
-                tickerManager(true, BLINK_RED, 0.5);
+                tickerManager(true, 0.5);
                 resetRequested = millis();
             }
         }
@@ -598,7 +572,7 @@ void loop() {
                 resetConfig(configFilePath);
                 restart();
             }
-        }
+        }*/
 
         #if OTA_ENABLE == true
             logger(F("Start ArduinoOTA handle"));

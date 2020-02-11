@@ -11,14 +11,14 @@
 
 #define TELEGRAM_HOST           "api.telegram.org"
 #define TELEGRAM_PORT           443
-#define TELEGRAM_MAX_MSG        3
+#define TELEGRAM_MAX_UPDATE     3
 #define TELEGRAM_TTR            10000
 
 #define TELEGRAM_EVT_NEW_MSG    1
 
 typedef bool (*DataAvailable)();
 typedef byte (*GetNextByte)();
-typedef void (*EventCallback)(Message *msg, long lastUpdateId);
+typedef void (*EventCallback)(Update *update, int newMessages);
 
 class TelegramBot {
     public:
@@ -26,14 +26,15 @@ class TelegramBot {
         TelegramBot(WiFiClientSecure &wifiClient, String token);
         void setToken(String token);
         void enableDebugMode();
-        User getMe();
-        int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_MSG);
-        DynamicJsonDocument sendMessage(long chatId, String text, String parseMode = "", bool disablePreview = false, long replyToMessageId = 0, bool disableNotification = false);
-        Message* getMessages(bool forceUpdate = false);
-        Message getLastMessage(bool forceUpdate = false);
+        void setTimeToRefresh(long ttr);
+        int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_UPDATE);
         long getLastUpdateId();
         int loop();
         bool on(int event, EventCallback callback);
+        User getMe();
+        Update* getUpdatesList(bool forceUpdate = false);
+        Update getLastUpdate(bool forceUpdate = false);
+        DynamicJsonDocument sendMessage(long chatId, String text, String parseMode = "", bool disablePreview = false, long replyToMessageId = 0, bool disableNotification = false);
         DynamicJsonDocument sendContact(long chatId, String phoneNumber, String firstName, String lastName = "", long replyToMessageId = 0, bool disableNotification = false);
         DynamicJsonDocument sendChatAction(long chatId, String action);
         DynamicJsonDocument sendLocation(long chatId, float latitude, float longitude, long replyToMessageId = 0, bool disableNotification = false, int livePeriod = 0);
@@ -76,15 +77,17 @@ class TelegramBot {
         WiFiClientSecure *client;
         bool debugMode = false;
         User botUser;
-        Message messages[TELEGRAM_MAX_MSG];
+        Update updates[TELEGRAM_MAX_UPDATE];
         String baseAction;
         long lastUpdateId = 0;
         long lastUpdateTime = 0;
-        EventCallback onNewMessage;
+        long timeToRefresh = TELEGRAM_TTR;
+        EventCallback onNewUpdate;
         DynamicJsonDocument sendGetCommand(String action);
         DynamicJsonDocument sendPostCommand(String action, JsonObject payload);
         DynamicJsonDocument buildJsonResponseError(int statusCode, String message);
-        bool parseMessages(JsonObject message, int index);
+        bool parseUpdates(JsonObject message, int index);
+        Update hydrateUpdateStruct(JsonObject update);
         Message hydrateMessageStruct(JsonObject message);
         User hydrateUserStruct(JsonObject message);
         Chat hydrateChatStruct(JsonObject jsonChat);

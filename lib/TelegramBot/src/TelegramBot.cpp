@@ -19,6 +19,10 @@ void TelegramBot::enableDebugMode() {
   this->debugMode = true;
 }
 
+void TelegramBot::setTimeToRefresh(long ttr) {
+  this->timeToRefresh = ttr;
+}
+
 void TelegramBot::logger(String message, bool endLine) {
   if (true == this->debugMode) {
     if (true == endLine) {
@@ -32,7 +36,7 @@ void TelegramBot::logger(String message, bool endLine) {
 bool TelegramBot::on(int event, EventCallback callback) {
   switch (event) {
     case TELEGRAM_EVT_NEW_MSG:
-      this->onNewMessage = callback;
+      this->onNewUpdate = callback;
       return true;
       break;
     default:
@@ -44,17 +48,17 @@ bool TelegramBot::on(int event, EventCallback callback) {
 }
 
 int TelegramBot::loop() {
-  if (millis() > this->lastUpdateTime + TELEGRAM_TTR)  {
+  if (millis() > this->lastUpdateTime + this->timeToRefresh)  {
       this->lastUpdateTime = millis();
       this->logger(F("Checking for messages.. "));
 
-      int newMessage = this->getUpdates(this->lastUpdateId);
+      int newMessages = this->getUpdates(this->lastUpdateId);
 
-      if (newMessage > 0 && this->onNewMessage != NULL) {
-        this->onNewMessage(this->messages, this->lastUpdateId);
+      if (newMessages > 0 && this->onNewUpdate != NULL) {
+        this->onNewUpdate(this->updates, newMessages);
       }
 
-      return newMessage;
+      return newMessages;
   }
 
   return 0;
@@ -90,16 +94,16 @@ int TelegramBot::getUpdates(int offset, int limit) {
 
   if (response.containsKey("ok") && true == response["ok"]) {
     int size = response["result"].size();
-    this->logger("Response size: " + String(size));
+
     if (size > 0) {
-      if (size > TELEGRAM_MAX_MSG) {
-        size = TELEGRAM_MAX_MSG;
+      if (size > TELEGRAM_MAX_UPDATE) {
+        size = TELEGRAM_MAX_UPDATE;
       }
 
       int messageIndex = 0;
 
       for (int i = 0; i < size; i++) {
-        if (this->parseMessages(response["result"][i], messageIndex)) {
+        if (this->parseUpdates(response["result"][i], messageIndex)) {
           messageIndex++;
         }
       }
@@ -113,20 +117,20 @@ int TelegramBot::getUpdates(int offset, int limit) {
   return 0;
 }
 
-Message* TelegramBot::getMessages(bool forceUpdate) {
+Update* TelegramBot::getUpdatesList(bool forceUpdate) {
   if (true == forceUpdate) {
     this->getUpdates(this->lastUpdateId);
   }
 
-  return this->messages;
+  return this->updates;
 }
 
-Message TelegramBot::getLastMessage(bool forceUpdate) {
+Update TelegramBot::getLastUpdate(bool forceUpdate) {
   if (true == forceUpdate) {
     this->getUpdates(this->lastUpdateId);
   }
 
-  return this->messages[0];
+  return this->updates[0];
 }
 
 DynamicJsonDocument TelegramBot::sendMessage(
@@ -137,8 +141,9 @@ DynamicJsonDocument TelegramBot::sendMessage(
   long replyToMessageId, 
   bool disableNotification
 ) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
-  StaticJsonDocument<CAPACITY> doc;
+  const size_t CAPACITY = JSON_OBJECT_SIZE(8);
+  this->logger("Json CAPACITY: " + String(CAPACITY));
+  StaticJsonDocument<512> doc;
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -394,22 +399,66 @@ DynamicJsonDocument TelegramBot::sendDocument(
   return this->sendPostCommand("sendDocument", postData);
 }
 
-bool TelegramBot::parseMessages(JsonObject message, int index) {
-  int updateId = message["update_id"];
+bool TelegramBot::parseUpdates(JsonObject update, int index) {
+  int updateId = update["update_id"];
 
   if (this->lastUpdateId != updateId) {
     this->lastUpdateId = updateId;
 
-    for (int i = (TELEGRAM_MAX_MSG-2); i >= 0; i--) {
-      this->messages[(i+1)] = this->messages[i];
+    for (int i = (TELEGRAM_MAX_UPDATE-2); i >= 0; i--) {
+      this->updates[(i+1)] = this->updates[i];
     }
 
-    this->messages[0] = this->hydrateMessageStruct(message["message"]);
+    this->updates[0] = this->hydrateUpdateStruct(update);
 
     return true;
   }
 
   return false;
+}
+
+Update TelegramBot::hydrateUpdateStruct(JsonObject jsonUpdate) {
+  Update update;
+
+  update.updateId = jsonUpdate["update_id"];
+  
+  if (jsonUpdate.containsKey("message")) {
+    update.message = this->hydrateMessageStruct(jsonUpdate["message"]);
+  }
+
+  if (jsonUpdate.containsKey("edited_message")) {
+    update.editedMessage = this->hydrateMessageStruct(jsonUpdate["edited_message"]);
+  }
+
+  if (jsonUpdate.containsKey("channel_post")) {
+    update.channelPost = this->hydrateMessageStruct(jsonUpdate["channel_post"]);
+  }
+
+  if (jsonUpdate.containsKey("edited_channel_post")) {
+    update.editedChannelPost = this->hydrateMessageStruct(jsonUpdate["edited_channel_post"]);
+  }
+
+  if (jsonUpdate.containsKey("inline_query")) {
+    //update.inlineQuery = this->hydrateInlineQueryStruct(jsonUpdate["inline_query"]);
+  }
+
+  if (jsonUpdate.containsKey("chosen_inline_result")) {
+    //update.chosenInlineResult = this->hydrateChosenInlineResultStruct(jsonUpdate["chosen_inline_result"]);
+  }
+
+  if (jsonUpdate.containsKey("callback_query")) {
+    //update.callbackQuery = this->hydrateCallbackQueryStruct(jsonUpdate["callback_query"]);
+  }
+
+  if (jsonUpdate.containsKey("shipping_query")) {
+    //update.shippingQuery = this->hydrateShippingQueryStruct(jsonUpdate["shipping_query"]);
+  }
+
+  if (jsonUpdate.containsKey("pre_checkout_query")) {
+    //update.preCheckoutQuery = this->hydratePreCheckoutQueryStruct(jsonUpdate["pre_checkout_query"]);
+  }
+
+  return update;
 }
 
 Message TelegramBot::hydrateMessageStruct(JsonObject jsonMessage) {
@@ -473,7 +522,7 @@ DynamicJsonDocument TelegramBot::sendGetCommand(String action) {
 }
 
 DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject payloadObject) {
-  DynamicJsonDocument response(512);
+  DynamicJsonDocument response(1024);
 
   HTTPClient httpClient;
   this->logger("CALL -> " + String(TELEGRAM_HOST)+(this->baseAction + action));
@@ -483,9 +532,12 @@ DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject paylo
   String postData;
   serializeJson(payloadObject, postData);
 
-  int httpCode = httpClient.POST(postData);
+  logger("postData: " + postData);
 
-  if (httpCode == HTTP_CODE_OK) {
+  int httpCode = httpClient.POST(postData);
+  logger("HTTP Code: " + String(httpCode));
+  
+  /*if (httpCode == HTTP_CODE_OK) {
     String payload = httpClient.getString();
     this->logger(payload);
     DeserializationError error = deserializeJson(response, payload);
@@ -497,7 +549,7 @@ DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject paylo
     }
   } else {
     return this->buildJsonResponseError(httpCode, httpClient.getString());
-  }
+  }*/
 
   httpClient.end();
 

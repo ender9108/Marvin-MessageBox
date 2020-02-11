@@ -79,16 +79,35 @@ struct Message {
 'successful_payment' => SuccessfulPayment::class,
 */
 
-struct InlineQuery {
+struct Location {
+    long latitude;
+    long longitude;
+};
 
+struct InlineQuery {
+    long id;
+    User from;
+    Location location;
+    String query;
+    String offset;
 };
 
 struct ChosenInlineResult {
-
+    long resultId;
+    User from;
+    Location location;
+    long inlineMessageId;
+    String query;
 };
 
 struct CallbackQuery {
-
+    long id;
+    User from;
+    Message message;
+    long inlineMessageId;
+    String chatInstance;
+    String data;
+    String gameShortName;
 };
 
 struct ShippingQuery {

@@ -31,18 +31,11 @@
 #define CHECK_MSG_DELAY             10000
 
 /* Leds pin */
-#define LED_1_R_PIN                 32
-#define LED_1_G_PIN                 35
-#define LED_1_B_PIN                 34
-#define LED_2_R_PIN                 33
-#define LED_2_G_PIN                 25
-#define LED_2_B_PIN                 26
-#define LED_3_R_PIN                 26
-#define LED_3_G_PIN                 27
-#define LED_3_B_PIN                 14
-#define LED_4_R_PIN                 12
-#define LED_4_G_PIN                 13
-#define LED_4_B_PIN                 16
+#define LED_1                       25
+#define LED_2                       26
+#define LED_3                       32
+#define LED_4                       33
+#define LED_STEP                    5
 
 /* Button pin */
 #define BTN_READ_PIN                21
@@ -56,14 +49,12 @@
 #define TFT_MISO                    19         
 #define TFT_MOSI                    23           
 #define TFT_CLK                     18
+#define TFT_LED                     17
 
-#define BLINK_RED                   9
-#define BLINK_BLUE                  1
-
-#define LED_RED_CHAN                0
-#define LED_GREEN_CHAN              1
-#define LED_BLUE_CHAN               2
-
+#define LED_CHAN_0                  0
+#define LED_CHAN_1                  1
+#define LED_CHAN_2                  2
+#define LED_CHAN_3                  3
 #define LED_FREQUENCY               5000
 #define LED_RES                     8
 
@@ -77,5 +68,4 @@
     #include <ArduinoOTA.h>
 #endif
 
-void blinkLed(int repeat = 0, int time = 250);
-void tickerManager(bool start = true, unsigned int status = BLINK_BLUE, float timer = 1);
+void tickerManager(bool start = true, float timer = 1);

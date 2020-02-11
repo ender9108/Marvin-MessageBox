@@ -1,0 +1,35 @@
+{
+    "name": "TelegramBot",
+    "keywords": "telegram bot, esp32, esp8266, communication, api",
+    "description": "Arduino Library for telegram bot API",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ender9108/TelegramBot.git"
+    },
+    "authors": [
+        {
+            "name": "Alexandre Berthelot",
+            "email": "alexandreberthelot9108@gmail.com",
+            "url": "https://github.com/ender9108",
+            "maintainer": true
+        }
+    ],
+    "dependencies": [{
+        "name": "ArduinoJson",
+        "authors": "Benoit Blanchon",
+        "frameworks": "arduino"
+      }, {
+        "name": "WiFiClientSecure",
+        "authors": "Evandro Luis Copercini",
+        "frameworks": "arduino"
+      }, {
+        "name": "HTTPClient",
+        "authors": "Markus Sattler",
+        "frameworks": "arduino"
+      }
+    ],
+    "version": "1.0.0",
+    "frameworks": "arduino",
+    "platforms": "*"
+  }
+  
