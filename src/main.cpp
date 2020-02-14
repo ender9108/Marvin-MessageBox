@@ -1,11 +1,5 @@
 #include "main.h"
 
-struct LastMessage {
-    String chatId = "";
-    String name = "";
-    String message = "";
-};
-
 const char *configFilePath  = "/config.json";
 const char *wifiApSsid      = "MarvinMessageBoxSsid";
 const char *wifiApPassw     = "MarvinMessageBox";
@@ -19,17 +13,17 @@ Ticker ticker;
 #endif
 
 Config config;
-LastMessage lastMessage;
 WebServer server(80);
 WiFiClientSecure wifiClient;
-//UniversalTelegramBot telegramBot(wifiClient);
 TelegramBot telegramBot(wifiClient);
-Adafruit_ILI9341 screen = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
+TFT_eSPI screen = TFT_eSPI(); // Invoke custom library
 
 bool wifiConnected = false;
 bool startApp = false;
 bool messageIsReading = false;
+bool newMessageArrived = false;
 bool ledStatus = false;
+bool ledErrorMode= false;
 long telegramBotLasttime; 
 String errorMessage = "";
 unsigned int previousResetBtnState = HIGH;
@@ -37,6 +31,12 @@ unsigned long resetBtnDuration = 0;
 unsigned long resetRequested = 0;
 unsigned long restartRequested = 0;
 unsigned int blinkColor = 1;
+JsonObject lastTelegramUpdate;
+String emoji[3] = {
+    "\u2764\ufe0f", // kiss
+    "\u2764\ufe0f", // heart
+    "\u2709"        // enveloppe
+};
 
 /* ********** MQTT ********** */
 
@@ -105,6 +105,127 @@ unsigned int blinkColor = 1;
         memset(response, 0, sizeof(response));
     }
 #endif
+
+/* ********** CONFIG ********** */
+bool getConfig() {
+    File configFile = SPIFFS.open(configFilePath, FILE_READ);
+
+    if (!configFile) {
+        logger("Failed to open config file \"" + String(configFilePath) + "\".");
+        return false;
+    }
+
+    size_t size = configFile.size();
+
+    if (size == 0) {
+        logger(F("Config file is empty !"));
+        return false;
+    }
+
+    if (size > 1024) {
+        logger(F("Config file size is too large"));
+        return false;
+    }
+
+    StaticJsonDocument<512> json;
+    DeserializationError err = deserializeJson(json, configFile);
+
+    configFile.close();
+
+    switch (err.code()) {
+        case DeserializationError::Ok:
+            logger(F("Deserialization succeeded"));
+            break;
+        case DeserializationError::InvalidInput:
+            logger(F("Invalid input!"));
+            return false;
+            break;
+        case DeserializationError::NoMemory:
+            logger(F("Not enough memory"));
+            return false;
+            break;
+        default:
+            logger(F("Deserialization failed"));
+            return false;
+            break;
+    }
+
+    // Copy values from the JsonObject to the Config
+    if (
+        !json.containsKey("wifiSsid") ||
+        !json.containsKey("wifiPassword") ||
+        !json.containsKey("mqttHost") ||
+        !json.containsKey("mqttPort") ||
+        !json.containsKey("mqttUsername") ||
+        !json.containsKey("mqttPassword") ||
+        !json.containsKey("mqttPublishChannel") ||
+        !json.containsKey("mqttSubscribeChannel") ||
+        !json.containsKey("telegramBotToken") ||
+        !json.containsKey("otaPassword") ||
+        !json.containsKey("uuid")
+    ) {
+        logger(F("getConfig"));
+        serializeJson(json, Serial);
+        logger(F(""));
+        logger(F("Key not found in json fille"));
+        return false;
+    }
+
+    strlcpy(config.wifiSsid, json["wifiSsid"], sizeof(config.wifiSsid));
+    strlcpy(config.wifiPassword, json["wifiPassword"], sizeof(config.wifiPassword));
+    strlcpy(config.mqttHost, json["mqttHost"], sizeof(config.mqttHost));
+    config.mqttPort = json["mqttPort"] | 1883;
+    strlcpy(config.mqttUsername, json["mqttUsername"], sizeof(config.mqttUsername));
+    strlcpy(config.mqttPassword, json["mqttPassword"], sizeof(config.mqttPassword));
+    strlcpy(config.mqttPublishChannel, json["mqttPublishChannel"], sizeof(config.mqttPublishChannel));
+    strlcpy(config.mqttSubscribeChannel, json["mqttSubscribeChannel"], sizeof(config.mqttSubscribeChannel));
+    strlcpy(config.telegramBotToken, json["telegramBotToken"], sizeof(config.telegramBotToken));
+    strlcpy(config.otaPassword, json["otaPassword"], sizeof(config.otaPassword));
+    strlcpy(config.uuid, json["uuid"], sizeof(config.uuid));
+
+    return true;
+}
+
+bool setConfig(Config newConfig) {
+    StaticJsonDocument<512> json;
+    
+    json["wifiSsid"] = String(newConfig.wifiSsid);
+    json["wifiPassword"] = String(newConfig.wifiPassword);
+    json["mqttHost"] = String(newConfig.mqttHost);
+    json["mqttPort"] = newConfig.mqttPort;
+    json["mqttUsername"] = String(newConfig.mqttUsername);
+    json["mqttPassword"] = String(newConfig.mqttPassword);
+    json["mqttPublishChannel"] = String(newConfig.mqttPublishChannel);
+    json["mqttSubscribeChannel"] = String(newConfig.mqttSubscribeChannel);
+    json["telegramBotToken"] = String(newConfig.telegramBotToken);
+    json["otaPassword"] = String(newConfig.otaPassword);
+
+    if (strlen(newConfig.uuid) == 0) {
+        uint32_t tmpUuid = esp_random();
+        String(tmpUuid).toCharArray(newConfig.uuid, 64);
+    }
+
+    json["uuid"] = String(newConfig.uuid);
+
+    File configFile = SPIFFS.open(configFilePath, FILE_WRITE);
+    
+    if (!configFile) {
+        logger(F("Failed to open config file for writing"));
+        return false;
+    }
+
+    serializeJson(json, configFile);
+
+    configFile.close();
+
+    return true;
+}
+
+void resetConfig() {
+    logger(F("Reset ESP"));
+    Config resetConfig;
+    setConfig(resetConfig);
+}
 
 /* ********** WEB SERVER ********** */
 
@@ -202,7 +323,7 @@ void handleSave() {
         server.arg("telegramBotToken").toCharArray(config.telegramBotToken, 128);
         server.arg("otaPassword").toCharArray(config.otaPassword, 64);
 
-        setConfig(configFilePath, config);
+        setConfig(config);
 
         String content = "";
         File file = SPIFFS.open("/restart.html", FILE_READ);
@@ -275,59 +396,69 @@ void serverConfig() {
 }
 
 /* ********** TELEGRAM ********** */
-void handlerNewMessage(Update *update, int newMessages) {
-    for (int i = (newMessages-1); i >= 0; i--) {
-        if (update[i].message.id != 0) {
-            logger("Message content :" + update[i].message.text);
-            logger("IndexOf /message: ", false);
-            logger(String(update[i].message.text.indexOf("/message")));
-            if (update[i].message.text.indexOf("/message") == 0) {
-                logger(F("New message !"));
-                tickerManager(true, 1);
+void displayNewMessage() {
+    /*if (true == newMessageArrived) {
+        messageIsReading = true;
+        logger("displayNewMessage !");
+        lastTelegramUpdate.message.text.replace("/message", "");
+        lastTelegramUpdate.message.text.trim();
+        clearScreen(screen);
+        screen.setCursor(0, 0);
+        delay(100);
 
-                telegramBot.sendMessage(update[i].message.chat.id, "Message reçu. En attente de lecture.");
-                #if MQTT_ENABLE == true
-                    char response[256];
-                    sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"newMessageReceived\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
-                    mqttClient.publish(config.mqttPublishChannel, response);
-                #endif
-            } else if (update[i].message.text.indexOf("/start") == 0) {
-                logger(F("Send message to telegram bot (action called : /start)"));
-                String welcome = "Welcome to MessageBox, " + update[i].message.from.firstName + ".\n";
-                welcome += "/message [MY_TEXT] : to send message in this box !\n";
-                telegramBot.sendMessage(update[i].message.chat.id, welcome, "Markdown");
-            }
+        if (lastTelegramUpdate.message.text == "") {
+            logger(F("No new message"));
+            screen.println("Pas de nouveau message.");
+        } else {
+            // Display message on screen
+            logger(F("Display message on screen"));
+            screen.println(lastTelegramUpdate.message.text);
+            delay(100);
+
+            logger(F("Send confirmation read message to bot chat id: "), false);
+            logger(String(lastTelegramUpdate.message.chat.id));
+
+            telegramBot.sendMessage(lastTelegramUpdate.message.chat.id, "Message lu " + emoji[2]);
+            logger("chat id: " + String(lastTelegramUpdate.message.chat.id));
+            tickerManager(false);
+
+            #if MQTT_ENABLE == true
+                char response[256];
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
+                mqttClient.publish(config.mqttPublishChannel, response);
+            #endif
         }
-    }
+    }*/
 }
 
-void displayNewMessage() {
-    messageIsReading = true;
-    logger("displayNewMessage !");
-    Update lastUpdate = telegramBot.getLastUpdate();
-    lastUpdate.message.text.replace("/message", "");
-    lastUpdate.message.text.trim();
-    //screen.writeCommand(ILI9341_SLPOUT);
-    clearScreen(screen);
-    screen.setCursor(0, 0);
+void handlerNewMessage(JsonArray updates, int newMessages) {
+    if (updates[0]["message"]["id"] != 0) {
+        String message = updates[0]["message"]["text"].as<String>();
 
-    if (lastUpdate.message.text == "") {
-        logger(F("No new message"));
-        screen.println("Pas de nouveau message.");
-    } else {
-        // Display message on screen
-        logger(F("Display message on screen"));
-        screen.println(lastUpdate.message.text);
+        logger("Message content :" + message);
+        logger("IndexOf /message: ", false);
+        logger(String(message.indexOf("/message")));
 
-        logger(F("Send confirmation read message to bot"));
-        telegramBot.sendMessage(lastUpdate.message.chat.id, "Message lu");
-        tickerManager(false);
+        if (message.indexOf("/message") == 0) {
+            logger(F("New message !"));
+            newMessageArrived = true;
+            tickerManager(true, 2);
 
-        #if MQTT_ENABLE == true
-            char response[256];
-            sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
-            mqttClient.publish(config.mqttPublishChannel, response);
-        #endif
+            lastTelegramUpdate = updates[0];
+
+            telegramBot.sendMessage(updates[0]["message"]["chat"]["id"], "Message reçu. En attente de lecture.");
+            #if MQTT_ENABLE == true
+                char response[256];
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"newMessageReceived\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
+                mqttClient.publish(config.mqttPublishChannel, response);
+            #endif
+        } else if (message.indexOf("/start") == 0) {
+            logger(F("Send message to telegram bot (action called : /start)"));
+            String firstname = updates[0]["message"]["from"]["firstName"].as<String>();
+            String welcome = "Welcome to MessageBox, " + firstname + ".\n";
+            welcome += "/message [MY_TEXT] : to send message in this box !\n";
+            telegramBot.sendMessage(updates[0]["message"]["chat"]["id"], welcome, "Markdown");
+        }
     }
 }
 
@@ -340,21 +471,35 @@ void blinkLed() {
         ledStatus = false;
     }
 
-    if (true == ledStatus) {
-        for (int i = 0; i < 256; i++) {
-            ledcWrite(LED_CHAN_0, i);
-            ledcWrite(LED_CHAN_1, i);
-            ledcWrite(LED_CHAN_2, i);
-            ledcWrite(LED_CHAN_3, i);
-            delay(25);
+    if (true == ledErrorMode) {
+        if (true == ledStatus) {
+            ledcWrite(LED_CHAN_0, 255);
+            ledcWrite(LED_CHAN_1, 255);
+            ledcWrite(LED_CHAN_2, 255);
+            ledcWrite(LED_CHAN_3, 255);
+        } else {
+            ledcWrite(LED_CHAN_0, 0);
+            ledcWrite(LED_CHAN_1, 0);
+            ledcWrite(LED_CHAN_2, 0);
+            ledcWrite(LED_CHAN_3, 0);
         }
     } else {
-        for (int i = 255; i >= 0; i--) {
-            ledcWrite(LED_CHAN_0, i);
-            ledcWrite(LED_CHAN_1, i);
-            ledcWrite(LED_CHAN_2, i);
-            ledcWrite(LED_CHAN_3, i);
-            delay(25);
+        if (true == ledStatus) {
+            for (int i = 0; i < 256; i++) {
+                ledcWrite(LED_CHAN_0, i);
+                ledcWrite(LED_CHAN_1, i);
+                ledcWrite(LED_CHAN_2, i);
+                ledcWrite(LED_CHAN_3, i);
+                delay(15);
+            }
+        } else {
+            for (int i = 255; i >= 0; i--) {
+                ledcWrite(LED_CHAN_0, i);
+                ledcWrite(LED_CHAN_1, i);
+                ledcWrite(LED_CHAN_2, i);
+                ledcWrite(LED_CHAN_3, i);
+                delay(15);
+            }
         }
     }
 }
@@ -374,8 +519,79 @@ void tickerManager(bool start, float timer) {
         ticker.attach(timer, blinkLed);
     } else {
         logger(F("Stop ticker !"));
+        ledErrorMode = false;
         ticker.detach();
     }
+}
+
+/* ********** TFT ********** */
+void touchCalibrate() {
+  uint16_t calData[5];
+  uint8_t calDataOK = 0;
+
+  // check if calibration file exists and size is correct
+  if (SPIFFS.exists(CALIBRATION_FILE)) {
+    if (REPEAT_CAL)
+    {
+      // Delete if we want to re-calibrate
+      SPIFFS.remove(CALIBRATION_FILE);
+    }
+    else
+    {
+      File f = SPIFFS.open(CALIBRATION_FILE, "r");
+      if (f) {
+        if (f.readBytes((char *)calData, 14) == 14)
+          calDataOK = 1;
+        f.close();
+      }
+    }
+  }
+
+  if (!calDataOK || REPEAT_CAL) {
+    screen.fillScreen(TFT_BLACK);
+    screen.setCursor(20, 0);
+    screen.setTextFont(2);
+    screen.setTextSize(1);
+    screen.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    screen.println("Touch corners as indicated");
+
+    screen.setTextFont(1);
+    screen.println();
+
+    screen.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
+
+    Serial.println(); Serial.println();
+    Serial.println("// Use this calibration code in setup():");
+    Serial.print("  uint16_t calData[5] = ");
+    Serial.print("{ ");
+
+    for (uint8_t i = 0; i < 5; i++)
+    {
+        Serial.print(calData[i]);
+        if (i < 4) Serial.print(", ");
+    }
+
+    Serial.println(" };");
+    Serial.print("  screen.setTouch(calData);");
+    Serial.println(); Serial.println();
+
+    screen.fillScreen(TFT_BLACK);
+    
+    screen.setTextColor(TFT_GREEN, TFT_BLACK);
+    screen.println("Calibration complete!");
+    screen.println("Calibration code sent to Serial port.");
+ 
+    // store data
+    File f = SPIFFS.open(CALIBRATION_FILE, "w");
+
+    if (f) {
+      f.write((const unsigned char *)calData, 14);
+      f.close();
+    }
+
+    delay(4000);
+  }
 }
 
 /* ********** COMMON ********** */
@@ -391,14 +607,19 @@ void setup() {
 
     logger(F("SPIFFS mounted"));
 
-    screen.begin();
-    screen.setRotation(1);
-    screen.setFont();
-    clearScreen(screen);
-    screen.setTextColor(ILI9341_WHITE);
-    screen.setTextSize(2);
+    pinMode(TFT_BCK_LED, OUTPUT);
+    digitalWrite(TFT_BCK_LED, HIGH);
 
-    screen.setCursor(0, 0);
+    screen.init();
+    screen.setRotation(1);
+    screen.setTextSize(1);
+    screen.setTextColor(TFT_WHITE, TFT_BLACK);
+    touchCalibrate();
+    clearScreen(screen);
+
+    uint16_t calData[5] = { 1, 1, 1, 1, 0 };
+    screen.setTouch(calData);
+
     screen.println("Start in progress...");
 
     ledcSetup(LED_CHAN_0, LED_FREQUENCY, LED_RES);
@@ -415,7 +636,7 @@ void setup() {
     shutdownLed();
 
     // Get wifi SSID and PASSW from SPIFFS
-    if (true == getConfig(configFilePath, config)) {
+    if (true == getConfig()) {
         screen.println("[Ok] - Get configuration");
         if (true == checkWifiConfigValues(config.wifiSsid, config.wifiPassword)) {
             wifiConnected = wifiConnect(config.wifiSsid, config.wifiPassword);
@@ -452,16 +673,25 @@ void setup() {
     }
 
     if (false == startApp) {
-        tickerManager(true, 2);
+        ledErrorMode = true;
+        tickerManager(true, 0.5);
         WiFi.mode(WIFI_AP);
         WiFi.softAP(wifiApSsid, wifiApPassw);
         WiFi.setHostname(hostname);
         logger("WiFi AP is ready (IP : " + WiFi.softAPIP().toString() + ")");
         serverConfig();
 
-        clearScreen(screen);
+        screen.fillScreen(TFT_BLACK);
+        screen.setCursor(0, 0);
         screen.println("Settings interface is started.");
-        screen.println("Open your browser and connect to http://" + String(WiFi.getHostname()));
+        screen.println("");
+        screen.println("Connect your wifi on : ");
+        screen.println("SSID : " + String(wifiApSsid));
+        screen.println("PWD  : " + String(wifiApPassw));
+        screen.println("");
+        screen.println("Open your browser and connect to ");
+        screen.println("http://" + String(hostname));
+        logger(String(hostname));
     } else {
         pinMode(BTN_READ_PIN, INPUT);
         pinMode(BTN_RESTART_PIN, INPUT);
@@ -469,6 +699,7 @@ void setup() {
 
         telegramBot.setToken(config.telegramBotToken);
         telegramBot.on(TELEGRAM_EVT_NEW_MSG, handlerNewMessage);
+        telegramBot.setTimeToRefresh(CHECK_MSG_DELAY);
         clearScreen(screen);
         tickerManager(false);
         logger(F("App started !"));
@@ -546,8 +777,8 @@ void loop() {
         if (digitalRead(BTN_READ_PIN) == HIGH) {
             if (true == messageIsReading) {
                 messageIsReading = false;
-                screen.fillScreen(ILI9341_BLACK);
-                //screen.writeCommand(ILI9341_SLPIN);
+                newMessageArrived = false;
+                clearScreen(screen);
             }
         }
 
@@ -569,7 +800,7 @@ void loop() {
 
         if (resetRequested != 0) {
             if (millis() - resetRequested >= DURATION_BEFORE_RESET ) {
-                resetConfig(configFilePath);
+                resetConfig();
                 restart();
             }
         }*/

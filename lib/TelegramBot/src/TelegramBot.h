@@ -7,18 +7,17 @@
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include "TelegramStruct.h"
 
 #define TELEGRAM_HOST           "api.telegram.org"
 #define TELEGRAM_PORT           443
 #define TELEGRAM_MAX_UPDATE     3
-#define TELEGRAM_TTR            10000
+#define TELEGRAM_TTR            30000
 
 #define TELEGRAM_EVT_NEW_MSG    1
 
 typedef bool (*DataAvailable)();
 typedef byte (*GetNextByte)();
-typedef void (*EventCallback)(Update *update, int newMessages);
+typedef void (*EventCallback)(JsonArray updates, int newMessages);
 
 class TelegramBot {
     public:
@@ -27,16 +26,17 @@ class TelegramBot {
         void setToken(String token);
         void enableDebugMode();
         void setTimeToRefresh(long ttr);
-        int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_UPDATE);
         long getLastUpdateId();
         int loop();
+        int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_UPDATE);
         bool on(int event, EventCallback callback);
-        User getMe();
-        Update* getUpdatesList(bool forceUpdate = false);
-        Update getLastUpdate(bool forceUpdate = false);
+        JsonObject getMe();
         DynamicJsonDocument sendMessage(long chatId, String text, String parseMode = "", bool disablePreview = false, long replyToMessageId = 0, bool disableNotification = false);
         DynamicJsonDocument sendContact(long chatId, String phoneNumber, String firstName, String lastName = "", long replyToMessageId = 0, bool disableNotification = false);
         DynamicJsonDocument sendChatAction(long chatId, String action);
+        //getUserProfilePhotos(int userId, int offset = 0, int limit = 100)
+        //setWebhook(String url, DataAvailable dataAvailableCallback, GetNextByte getNextByteCallback)
+        //deleteWebhook()
         DynamicJsonDocument sendLocation(long chatId, float latitude, float longitude, long replyToMessageId = 0, bool disableNotification = false, int livePeriod = 0);
         DynamicJsonDocument editMessageReplyMarkup(long chatId, long messageId, long inlineMessageId = 0);
         DynamicJsonDocument deleteMessage(long chatId, long messageId);
@@ -76,8 +76,7 @@ class TelegramBot {
         String token;
         WiFiClientSecure *client;
         bool debugMode = false;
-        User botUser;
-        Update updates[TELEGRAM_MAX_UPDATE];
+        JsonArray updates;
         String baseAction;
         long lastUpdateId = 0;
         long lastUpdateTime = 0;
@@ -86,10 +85,6 @@ class TelegramBot {
         DynamicJsonDocument sendGetCommand(String action);
         DynamicJsonDocument sendPostCommand(String action, JsonObject payload);
         DynamicJsonDocument buildJsonResponseError(int statusCode, String message);
-        bool parseUpdates(JsonObject message, int index);
-        Update hydrateUpdateStruct(JsonObject update);
-        Message hydrateMessageStruct(JsonObject message);
-        User hydrateUserStruct(JsonObject message);
-        Chat hydrateChatStruct(JsonObject jsonChat);
+        bool parseUpdates(JsonObject message);
         void logger(String message, bool endLine = true);
 };

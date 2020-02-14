@@ -1,7 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
-#include <Adafruit_ILI9341.h>
+#include <TFT_eSPI.h>
+//#include <Adafruit_ILI9341.h>
 
 #define DEBUG               true
 #define DEFAULT_TXT_COLOR   ILI9341_WHITE
@@ -15,6 +16,7 @@
 
 void logger(String message, bool endLine = true);
 void restart();
-void printCenterText(Adafruit_ILI9341 screen, const char *string, int txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
+void clearScreen(TFT_eSPI screen);
+/*void printCenterText(Adafruit_ILI9341 screen, const char *string, int txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
 void printCenterText(Adafruit_ILI9341 screen, String *string, int txtSize = DEFAULT_TXT_SIZE, uint16_t txtColor = DEFAULT_TXT_COLOR);
-void clearScreen(Adafruit_ILI9341 screen);
+void clearScreen(Adafruit_ILI9341 screen);*/

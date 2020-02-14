@@ -8,14 +8,12 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 #include <WebServer.h>
-#include <ESPTools.h>
-#include <ESPConfig.h>
-#include <ESPWifi.h>
 #include <WiFiClientSecure.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
 #include <SPI.h>
+#include <TFT_eSPI.h>
 #include <TelegramBot.h>
+#include <ESPTools.h>
+#include <ESPWifi.h>
 
 /* Conditional compilation */
 #define MQTT_ENABLE                 false
@@ -33,24 +31,27 @@
 /* Leds pin */
 #define LED_1                       25
 #define LED_2                       26
-#define LED_3                       32
-#define LED_4                       33
-#define LED_STEP                    5
+#define LED_3                       33
+#define LED_4                       35
 
 /* Button pin */
-#define BTN_READ_PIN                21
-#define BTN_RESTART_PIN             16
-#define BTN_RESET_PIN               22
+#define BTN_READ_PIN                14
+#define BTN_RESTART_PIN             34
+#define BTN_RESET_PIN               27
 
 /* TFT SCREEN */
-#define TFT_DC                      4
+#define CALIBRATION_FILE            "/TouchCalData"
+#define REPEAT_CAL                  false
+#define TFT_BCK_LED                 32
+/*#define TFT_DC                      4
 #define TFT_CS                      15
 #define TFT_RST                     2
 #define TFT_MISO                    19         
 #define TFT_MOSI                    23           
 #define TFT_CLK                     18
-#define TFT_LED                     17
+#define TFT_LED                     17*/
 
+/* LEDS */
 #define LED_CHAN_0                  0
 #define LED_CHAN_1                  1
 #define LED_CHAN_2                  2
@@ -67,5 +68,21 @@
 #if OTA_ENABLE == true
     #include <ArduinoOTA.h>
 #endif
+
+/* CONFIG */
+struct Config {
+    char wifiSsid[32]               = "";
+    char wifiPassword[64]           = "";
+    bool mqttEnable                 = true;
+    char mqttHost[128]              = "";
+    int  mqttPort                   = 1883;
+    char mqttUsername[32]           = "";
+    char mqttPassword[64]           = "";
+    char mqttPublishChannel[128]    = "device/to/marvin";
+    char mqttSubscribeChannel[128]  = "marvin/to/device";
+    char telegramBotToken[128]      = "";
+    char otaPassword[64]            = "";
+    char uuid[64]                   = "";
+};
 
 void tickerManager(bool start = true, float timer = 1);

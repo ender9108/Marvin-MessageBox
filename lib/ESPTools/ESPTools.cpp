@@ -7,6 +7,8 @@ void logger(String message, bool endLine) {
         } else {
             Serial.print(message);
         }
+
+        Serial.flush();
     }
 }
 
@@ -15,7 +17,12 @@ void restart() {
     ESP.restart();
 }
 
-void printCenterText(Adafruit_ILI9341 screen, const char *string, int txtSize, uint16_t txtColor) {
+void clearScreen(TFT_eSPI screen) {
+    screen.fillScreen(TFT_BLACK);
+    screen.setCursor(0, 0);
+}
+
+/*void printCenterText(Adafruit_ILI9341 screen, const char *string, int txtSize, uint16_t txtColor) {
     screen.setTextColor(txtColor);
 	screen.setTextSize(txtSize);
 	screen.setCursor(screen.width() - (strlen(string) * 3 * txtSize), screen.height() - (4 * txtSize));
@@ -32,4 +39,4 @@ void printCenterText(Adafruit_ILI9341 screen, String string, int txtSize, uint16
 void clearScreen(Adafruit_ILI9341 screen) {
     screen.fillScreen(ILI9341_BLACK);
     screen.setCursor(0, 0);
-}
+}*/
