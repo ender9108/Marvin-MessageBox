@@ -31,7 +31,8 @@ unsigned long resetBtnDuration = 0;
 unsigned long resetRequested = 0;
 unsigned long restartRequested = 0;
 unsigned int blinkColor = 1;
-JsonObject lastTelegramUpdate;
+JsonArray lastTelegramUpdate;
+JsonObject currentReadingMessage;
 String emoji[3] = {
     "\u2764\ufe0f", // kiss
     "\u2764\ufe0f", // heart
@@ -279,6 +280,7 @@ void handleHome() {
         content.replace("%TELEGRAM_TOKEN%", String(config.telegramBotToken));
         content.replace("%OTA_PASSWORD%", String(config.otaPassword));
 
+        server.sendHeader("Content-Length", String(content.length()));
         server.send(200, "text/html", content);
     }
 }
@@ -336,6 +338,7 @@ void handleSave() {
             content.replace("%TITLE%", String(appName));
             content.replace("%MODULE_NAME%", String(appName));
 
+            server.sendHeader("Content-Length", String(content.length()));
             server.send(200, "text/html", content);
         }
     } else {
@@ -346,7 +349,10 @@ void handleSave() {
 }
 
 void handleRestart() {
-    server.send(200, "text/plain", "Redémarrage en cours. Vous pouvez vous reconnecter à votre réseau wifi");
+    String content = "Redémarrage en cours. Vous pouvez vous reconnecter à votre réseau wifi";
+
+    server.sendHeader("Content-Length", String(content.length()));
+    server.send(200, "text/plain", content);
     delay(1000);
     restart();
 }
@@ -395,136 +401,7 @@ void serverConfig() {
     logger("HTTP server started");
 }
 
-/* ********** TELEGRAM ********** */
-void displayNewMessage() {
-    /*if (true == newMessageArrived) {
-        messageIsReading = true;
-        logger("displayNewMessage !");
-        lastTelegramUpdate.message.text.replace("/message", "");
-        lastTelegramUpdate.message.text.trim();
-        clearScreen(screen);
-        screen.setCursor(0, 0);
-        delay(100);
-
-        if (lastTelegramUpdate.message.text == "") {
-            logger(F("No new message"));
-            screen.println("Pas de nouveau message.");
-        } else {
-            // Display message on screen
-            logger(F("Display message on screen"));
-            screen.println(lastTelegramUpdate.message.text);
-            delay(100);
-
-            logger(F("Send confirmation read message to bot chat id: "), false);
-            logger(String(lastTelegramUpdate.message.chat.id));
-
-            telegramBot.sendMessage(lastTelegramUpdate.message.chat.id, "Message lu " + emoji[2]);
-            logger("chat id: " + String(lastTelegramUpdate.message.chat.id));
-            tickerManager(false);
-
-            #if MQTT_ENABLE == true
-                char response[256];
-                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
-                mqttClient.publish(config.mqttPublishChannel, response);
-            #endif
-        }
-    }*/
-}
-
-void handlerNewMessage(JsonArray updates, int newMessages) {
-    if (updates[0]["message"]["id"] != 0) {
-        String message = updates[0]["message"]["text"].as<String>();
-
-        logger("Message content :" + message);
-        logger("IndexOf /message: ", false);
-        logger(String(message.indexOf("/message")));
-
-        if (message.indexOf("/message") == 0) {
-            logger(F("New message !"));
-            newMessageArrived = true;
-            tickerManager(true, 2);
-
-            lastTelegramUpdate = updates[0];
-
-            telegramBot.sendMessage(updates[0]["message"]["chat"]["id"], "Message reçu. En attente de lecture.");
-            #if MQTT_ENABLE == true
-                char response[256];
-                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"newMessageReceived\",\"payload\":\"Message reçu. En attente de lecture.\"}", config.uuid);
-                mqttClient.publish(config.mqttPublishChannel, response);
-            #endif
-        } else if (message.indexOf("/start") == 0) {
-            logger(F("Send message to telegram bot (action called : /start)"));
-            String firstname = updates[0]["message"]["from"]["firstName"].as<String>();
-            String welcome = "Welcome to MessageBox, " + firstname + ".\n";
-            welcome += "/message [MY_TEXT] : to send message in this box !\n";
-            telegramBot.sendMessage(updates[0]["message"]["chat"]["id"], welcome, "Markdown");
-        }
-    }
-}
-
-/* ********** LEDS ********** */
-
-void blinkLed() {
-    if (false == ledStatus) {
-        ledStatus = true;
-    } else {
-        ledStatus = false;
-    }
-
-    if (true == ledErrorMode) {
-        if (true == ledStatus) {
-            ledcWrite(LED_CHAN_0, 255);
-            ledcWrite(LED_CHAN_1, 255);
-            ledcWrite(LED_CHAN_2, 255);
-            ledcWrite(LED_CHAN_3, 255);
-        } else {
-            ledcWrite(LED_CHAN_0, 0);
-            ledcWrite(LED_CHAN_1, 0);
-            ledcWrite(LED_CHAN_2, 0);
-            ledcWrite(LED_CHAN_3, 0);
-        }
-    } else {
-        if (true == ledStatus) {
-            for (int i = 0; i < 256; i++) {
-                ledcWrite(LED_CHAN_0, i);
-                ledcWrite(LED_CHAN_1, i);
-                ledcWrite(LED_CHAN_2, i);
-                ledcWrite(LED_CHAN_3, i);
-                delay(15);
-            }
-        } else {
-            for (int i = 255; i >= 0; i--) {
-                ledcWrite(LED_CHAN_0, i);
-                ledcWrite(LED_CHAN_1, i);
-                ledcWrite(LED_CHAN_2, i);
-                ledcWrite(LED_CHAN_3, i);
-                delay(15);
-            }
-        }
-    }
-}
-
-void shutdownLed() {
-    ledcWrite(LED_CHAN_0, 0);
-    ledcWrite(LED_CHAN_1, 0);
-    ledcWrite(LED_CHAN_2, 0);
-    ledcWrite(LED_CHAN_3, 0);
-}
-
-void tickerManager(bool start, float timer) {
-    shutdownLed();
-
-    if (true == start) {
-        logger(F("Start ticker !"));
-        ticker.attach(timer, blinkLed);
-    } else {
-        logger(F("Stop ticker !"));
-        ledErrorMode = false;
-        ticker.detach();
-    }
-}
-
-/* ********** TFT ********** */
+/* ********** SCREEN ********** */
 void touchCalibrate() {
   uint16_t calData[5];
   uint8_t calDataOK = 0;
@@ -594,6 +471,179 @@ void touchCalibrate() {
   }
 }
 
+void drawBottomButtonBar() {
+    screen.fillRect(0, 195, 320, 4, TFT_WHITE);
+
+    if (lastTelegramUpdate.size() > 1){
+        screen.drawRect(ARROW_BTN_POS_X, ARROW_BTN_POS_Y, ARROW_BTN_WIDTH, ARROW_BTN_HEIGHT, TFT_GREEN);
+        screen.pushImage(ARROW_BTN_IMG_POS_X, ARROW_BTN_IMG_POS_Y, ARROW_BTN_IMG_WIDTH, ARROW_BTN_IMG_HEIGHT, heart);        
+    }
+
+    screen.drawRect(HEART_BTN_POS_X, HEART_BTN_POS_Y, HEART_BTN_WIDTH, HEART_BTN_HEIGHT, TFT_GREEN);
+    screen.pushImage(HEART_BTN_IMG_POS_X, HEART_BTN_IMG_POS_Y, HEART_BTN_IMG_WIDTH, HEART_BTN_IMG_HEIGHT, heart);
+}
+
+void drawScreenNoMessage() {
+    screen.setTextDatum(TC_DATUM);
+    screen.drawString(F("Pas de nouveau message"), 160, 120, 1);
+
+    drawBottomButtonBar();
+}
+
+void drawScreenMessage(String message) {
+    screen.setTextDatum(TC_DATUM);
+    screen.drawString(message, 160, 120, 1);
+
+    drawBottomButtonBar();
+}
+
+/* ********** TELEGRAM ********** */
+void displayNewMessage() {
+    logger("displayNewMessage");
+    messageIsReading = true;
+
+    if (lastTelegramUpdate.size() > 0) {
+        currentReadingMessage = lastTelegramUpdate[0];
+        String message = lastTelegramUpdate[0]["message"]["text"].as<String>();
+        drawScreenMessage(message);
+        telegramBot.sendMessage(lastTelegramUpdate[0]["message"]["chat"]["id"], emoji[2] + "Message \"" + message + "\" lu ");
+        lastTelegramUpdate.remove(0);
+    } else {
+        drawScreenNoMessage();
+    }
+    /*if (true == newMessageArrived) {
+        messageIsReading = true;
+        logger("displayNewMessage !");
+        lastTelegramUpdate.message.text.replace("/message", "");
+        lastTelegramUpdate.message.text.trim();
+        clearScreen(screen);
+        screen.setCursor(0, 0);
+        delay(100);
+
+        if (lastTelegramUpdate.message.text == "") {
+            logger(F("No new message"));
+            screen.println("Pas de nouveau message.");
+        } else {
+            // Display message on screen
+            logger(F("Display message on screen"));
+            screen.println(lastTelegramUpdate.message.text);
+            delay(100);
+
+            logger(F("Send confirmation read message to bot chat id: "), false);
+            logger(String(lastTelegramUpdate.message.chat.id));
+
+            
+            logger("chat id: " + String(lastTelegramUpdate.message.chat.id));
+            tickerManager(false);
+
+            #if MQTT_ENABLE == true
+                char response[256];
+                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
+                mqttClient.publish(config.mqttPublishChannel, response);
+            #endif
+        }
+    }*/
+
+}
+
+void handlerNewMessage(JsonArray updates, int newMessages) {
+    for (int i = 0; i < updates.size(); i++) {
+        if (updates[i].containsKey("message")) {
+            if (updates[i]["message"].containsKey("text")) {
+                String message = updates[i]["message"]["text"].as<String>();
+                message.trim();
+
+                if (message != "") {
+                    logger(F("New message !"));
+                    newMessageArrived = true;
+                    tickerManager(true, 2);
+
+                    lastTelegramUpdate.add(updates[i]);
+                    telegramBot.sendMessage(
+                        updates[i]["message"]["chat"]["id"], 
+                        "Le message \"" + message + "\" à été reçu. En attente de lecture."
+                    );
+                }
+            }
+
+            if (updates[i]["message"].containsKey("photo")) {
+                // gérer les photos
+            }
+        }
+    }
+
+    if (lastTelegramUpdate.size() == TELEGRAM_MAX_UPDATE) {
+        telegramBot.pause();
+    }
+}
+
+void sendHeart() {
+    logger(F("Send emoji heart."));
+    telegramBot.sendMessage(currentReadingMessage["message"]["chat"]["id"], emoji[1]);
+}
+
+/* ********** LEDS ********** */
+
+void blinkLed() {
+    if (false == ledStatus) {
+        ledStatus = true;
+    } else {
+        ledStatus = false;
+    }
+
+    if (true == ledErrorMode) {
+        if (true == ledStatus) {
+            ledcWrite(LED_CHAN_0, 255);
+            ledcWrite(LED_CHAN_1, 255);
+            ledcWrite(LED_CHAN_2, 255);
+            ledcWrite(LED_CHAN_3, 255);
+        } else {
+            ledcWrite(LED_CHAN_0, 0);
+            ledcWrite(LED_CHAN_1, 0);
+            ledcWrite(LED_CHAN_2, 0);
+            ledcWrite(LED_CHAN_3, 0);
+        }
+    } else {
+        if (true == ledStatus) {
+            for (int i = 0; i < 256; i++) {
+                ledcWrite(LED_CHAN_0, i);
+                ledcWrite(LED_CHAN_1, i);
+                ledcWrite(LED_CHAN_2, i);
+                ledcWrite(LED_CHAN_3, i);
+                delay(15);
+            }
+        } else {
+            for (int i = 255; i >= 0; i--) {
+                ledcWrite(LED_CHAN_0, i);
+                ledcWrite(LED_CHAN_1, i);
+                ledcWrite(LED_CHAN_2, i);
+                ledcWrite(LED_CHAN_3, i);
+                delay(15);
+            }
+        }
+    }
+}
+
+void shutdownLed() {
+    ledcWrite(LED_CHAN_0, 0);
+    ledcWrite(LED_CHAN_1, 0);
+    ledcWrite(LED_CHAN_2, 0);
+    ledcWrite(LED_CHAN_3, 0);
+}
+
+void tickerManager(bool start, float timer) {
+    shutdownLed();
+
+    if (true == start) {
+        logger(F("Start ticker !"));
+        ticker.attach(timer, blinkLed);
+    } else {
+        logger(F("Stop ticker !"));
+        ledErrorMode = false;
+        ticker.detach();
+    }
+}
+
 /* ********** COMMON ********** */
 
 void setup() {
@@ -660,7 +710,7 @@ void setup() {
         }
 
         startApp = false;
-    } 
+    }
     #if MQTT_ENABLE == true
         else if (true == wifiConnected &&true == config.mqttEnable && false == mqttConnected) {
             screen.println("[Nok] - Mqtt connection error (" + String(config.mqttHost) + ")");
@@ -702,6 +752,7 @@ void setup() {
         telegramBot.setTimeToRefresh(CHECK_MSG_DELAY);
         clearScreen(screen);
         tickerManager(false);
+        //digitalWrite(TFT_BCK_LED, LOW);
         logger(F("App started !"));
     }
 
@@ -754,6 +805,45 @@ void loop() {
 
         telegramBot.loop();
 
+        if (digitalRead(BTN_READ_PIN) == LOW) {
+            if (false == messageIsReading) {
+                telegramBot.pause();
+                //digitalWrite(TFT_BCK_LED, HIGH);
+                displayNewMessage();
+            }
+        }
+
+        if (digitalRead(BTN_READ_PIN) == HIGH) {
+            if (true == messageIsReading) {
+                messageIsReading = false;
+                newMessageArrived = false;
+                clearScreen(screen);
+                //digitalWrite(TFT_BCK_LED, LOW);
+                telegramBot.resume();
+            }
+        }
+
+        uint16_t x, y;
+
+        if (screen.getTouch(&x, &y)) {
+            logger("Touch X: " + String(x));
+            logger("Touch Y: " + String(y));
+
+            if ((x > ARROW_BTN_POS_X) && (x < (ARROW_BTN_POS_X + ARROW_BTN_WIDTH))) {
+                if ((y > ARROW_BTN_POS_Y) && (y <= (ARROW_BTN_POS_Y + ARROW_BTN_HEIGHT))) {
+                    Serial.println("Arrow btn hit");
+                    displayNewMessage();
+                }
+            }
+
+            if ((x > HEART_BTN_POS_X) && (x < (HEART_BTN_POS_X + HEART_BTN_WIDTH))) {
+                if ((y > HEART_BTN_POS_Y) && (y <= (HEART_BTN_POS_Y + HEART_BTN_HEIGHT))) {
+                    Serial.println("Heart btn hit");
+                    sendHeart();
+                }
+            }
+        }
+
         /*if (digitalRead(BTN_RESTART_PIN) == LOW) {
             logger("Button restart pressed !");
             tickerManager(true, 0.5);
@@ -765,20 +855,6 @@ void loop() {
                 tickerManager(false);
                 shutdownLed();
                 restart();
-            }
-        }
-
-        if (digitalRead(BTN_READ_PIN) == LOW) {
-            if (false == messageIsReading) {
-                displayNewMessage();
-            }
-        }
-
-        if (digitalRead(BTN_READ_PIN) == HIGH) {
-            if (true == messageIsReading) {
-                messageIsReading = false;
-                newMessageArrived = false;
-                clearScreen(screen);
             }
         }
 

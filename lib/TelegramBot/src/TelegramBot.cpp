@@ -33,6 +33,14 @@ void TelegramBot::logger(String message, bool endLine) {
   }
 }
 
+void TelegramBot::pause() {
+  this->loopOn = false;
+}
+
+void TelegramBot::resume() {
+  this->loopOn = true;
+}
+
 bool TelegramBot::on(int event, EventCallback callback) {
   switch (event) {
     case TELEGRAM_EVT_NEW_MSG:
@@ -48,7 +56,7 @@ bool TelegramBot::on(int event, EventCallback callback) {
 }
 
 int TelegramBot::loop() {
-  if (millis() > this->lastUpdateTime + this->timeToRefresh)  {
+  if (true == this->loopOn && millis() > this->lastUpdateTime + this->timeToRefresh)  {
       this->lastUpdateTime = millis();
       this->logger(F("Checking for messages.. "));
 

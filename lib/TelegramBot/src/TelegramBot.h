@@ -26,6 +26,8 @@ class TelegramBot {
         void setToken(String token);
         void enableDebugMode();
         void setTimeToRefresh(long ttr);
+        void pause();
+        void resume();
         long getLastUpdateId();
         int loop();
         int getUpdates(int offset = 0, int limit = TELEGRAM_MAX_UPDATE);
@@ -76,6 +78,7 @@ class TelegramBot {
         String token;
         WiFiClientSecure *client;
         bool debugMode = false;
+        bool loopOn = true;
         JsonArray updates;
         String baseAction;
         long lastUpdateId = 0;
