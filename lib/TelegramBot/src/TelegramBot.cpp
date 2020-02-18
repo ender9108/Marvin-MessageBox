@@ -58,7 +58,7 @@ bool TelegramBot::on(int event, EventCallback callback) {
 int TelegramBot::loop() {
   if (true == this->loopOn && millis() > this->lastUpdateTime + this->timeToRefresh)  {
       this->lastUpdateTime = millis();
-      this->logger(F("Checking for messages.. "));
+      this->logger(F("Checking new messages.. "));
 
       int newMessages = this->getUpdates(this->lastUpdateId);
 
@@ -77,21 +77,13 @@ long TelegramBot::getLastUpdateId() {
 }
 
 JsonObject TelegramBot::getMe() {
-  this->logger("Start getMe");
   DynamicJsonDocument document = this->sendGetCommand("getMe");
-  
-  if (this->debugMode) {
-    serializeJson(document, Serial);
-    this->logger("");
-  }
-
   JsonObject response = document.to<JsonObject>();
 
   return response;
 }
 
 int TelegramBot::getUpdates(int offset, int limit) {
-  this->logger("Start getUpdates");
   DynamicJsonDocument response = this->sendGetCommand("getUpdates?offset=" + String(offset) + "&limit=" + String(limit));
 
   if (response.containsKey("ok") && true == response["ok"]) {
@@ -117,7 +109,7 @@ int TelegramBot::getUpdates(int offset, int limit) {
 
       return messageIndex;
     } else {
-      this->logger("No message.");
+      this->logger("No new message.");
     }
   }
 
@@ -135,6 +127,12 @@ bool TelegramBot::parseUpdates(JsonObject update) {
   return false;
 }
 
+const size_t TelegramBot::calculateJsonCapacity(int object, int array, int multiplier) {
+  const size_t CAPACITY = (JSON_OBJECT_SIZE(object) + JSON_ARRAY_SIZE(array)) * multiplier;
+
+  return CAPACITY;
+}
+
 DynamicJsonDocument TelegramBot::sendMessage(
   long chatId, 
   String text, 
@@ -143,8 +141,7 @@ DynamicJsonDocument TelegramBot::sendMessage(
   long replyToMessageId,
   bool disableNotification
 ) {
-  //const size_t CAPACITY = JSON_OBJECT_SIZE(8) * 2;
-  DynamicJsonDocument doc(512);
+  DynamicJsonDocument doc(this->calculateJsonCapacity(8, 0, 2));
 
   JsonObject jsonData = doc.to<JsonObject>();
   jsonData["chat_id"] = chatId;
@@ -165,8 +162,7 @@ DynamicJsonDocument TelegramBot::sendContact(
   long replyToMessageId, 
   bool disableNotification
 ) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(6));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -180,8 +176,7 @@ DynamicJsonDocument TelegramBot::sendContact(
 }
 
 DynamicJsonDocument TelegramBot::sendChatAction(long chatId, String action) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(2);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(2));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -198,8 +193,7 @@ DynamicJsonDocument TelegramBot::sendLocation(
   bool disableNotification, 
   int livePeriod
 ) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(6));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -213,8 +207,7 @@ DynamicJsonDocument TelegramBot::sendLocation(
 }
 
 DynamicJsonDocument TelegramBot::editMessageReplyMarkup(long chatId, long messageId, long inlineMessageId) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(3);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(3));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -225,8 +218,7 @@ DynamicJsonDocument TelegramBot::editMessageReplyMarkup(long chatId, long messag
 }
 
 DynamicJsonDocument TelegramBot::deleteMessage(long chatId, long messageId) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(2);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(2));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -236,22 +228,20 @@ DynamicJsonDocument TelegramBot::deleteMessage(long chatId, long messageId) {
 }
 
 DynamicJsonDocument TelegramBot::editMessageLiveLocation(long chatId, long messageId, long inlineMessageId, float latitude, float longitude) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(5);
-  StaticJsonDocument<CAPACITY> doc;
+    DynamicJsonDocument doc(this->calculateJsonCapacity(5));
 
-  JsonObject postData = doc.to<JsonObject>();
-  postData["chat_id"] = chatId;
-  postData["message_id"] = messageId;
-  postData["inline_message_id"] = inlineMessageId;
-  postData["latitude"] = latitude;
-  postData["longitude"] = longitude;
+    JsonObject postData = doc.to<JsonObject>();
+    postData["chat_id"] = chatId;
+    postData["message_id"] = messageId;
+    postData["inline_message_id"] = inlineMessageId;
+    postData["latitude"] = latitude;
+    postData["longitude"] = longitude;
 
-  return this->sendPostCommand("editMessageLiveLocation", postData);
+    return this->sendPostCommand("editMessageLiveLocation", postData);
 }
 
 DynamicJsonDocument TelegramBot::stopMessageLiveLocation(long chatId, long messageId, long inlineMessageId) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(3);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(3));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -262,8 +252,7 @@ DynamicJsonDocument TelegramBot::stopMessageLiveLocation(long chatId, long messa
 }
 
 DynamicJsonDocument TelegramBot::forwardMessage(long chatId, long fromChatId, long messageId, bool disableNotification) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(4);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(4));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -275,8 +264,7 @@ DynamicJsonDocument TelegramBot::forwardMessage(long chatId, long fromChatId, lo
 }
 
 DynamicJsonDocument TelegramBot::kickChatMember(long chatId, long userId, long untilDate) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(3);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(3));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -290,8 +278,7 @@ DynamicJsonDocument TelegramBot::kickChatMember(long chatId, long userId, long u
 }
 
 DynamicJsonDocument TelegramBot::unbanChatMember(long chatId, long userId) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(2);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(2));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -301,8 +288,7 @@ DynamicJsonDocument TelegramBot::unbanChatMember(long chatId, long userId) {
 }
 
 DynamicJsonDocument TelegramBot::editMessageText(long chatId, long messageId, String text, String parseMode, bool disablePreview, long inlineMessageId) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(6));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -316,8 +302,7 @@ DynamicJsonDocument TelegramBot::editMessageText(long chatId, long messageId, St
 }
 
 DynamicJsonDocument TelegramBot::editMessageCaption(long chatId, long messageId, String caption, long inlineMessageId) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(4);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(4));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -336,8 +321,7 @@ DynamicJsonDocument TelegramBot::sendPhoto(
   bool disableNotification, 
   String parseMode
 ) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(6));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -358,8 +342,7 @@ DynamicJsonDocument TelegramBot::sendDocument(
   bool disableNotification, 
   String parseMode
 ) {
-  const size_t CAPACITY = JSON_OBJECT_SIZE(6);
-  StaticJsonDocument<CAPACITY> doc;
+  DynamicJsonDocument doc(this->calculateJsonCapacity(6));
 
   JsonObject postData = doc.to<JsonObject>();
   postData["chat_id"] = chatId;
@@ -376,18 +359,19 @@ DynamicJsonDocument TelegramBot::sendGetCommand(String action) {
   DynamicJsonDocument response(4096);
 
   HTTPClient httpClient;
-  this->logger("CALL -> GET " + String(TELEGRAM_HOST)+(this->baseAction + action));
+  this->logger("-- CALL -> GET " + String(TELEGRAM_HOST)+(this->baseAction + action));
   httpClient.begin(*this->client, String(TELEGRAM_HOST), TELEGRAM_PORT, (this->baseAction + action));
   int httpCode = httpClient.GET();
+  this->logger("---- HTTP RESPONSE CODE : " + String(httpCode));
 
   if (httpCode == HTTP_CODE_OK) {
     String payload = httpClient.getString();
-    this->logger(payload);
+    this->logger("---- HTTP RESPONSE PAYLOAD : " + payload);
     DeserializationError error = deserializeJson(response, payload);
 
     if (error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.c_str());
+      this->logger(F("---- DeserializeJson() failed : "), false);
+      this->logger(error.c_str());
       response = this->buildJsonResponseError(httpCode, F("deserializeJson() failed"));
     }
   } else {
@@ -400,28 +384,29 @@ DynamicJsonDocument TelegramBot::sendGetCommand(String action) {
 }
 
 DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject payloadObject) {
-  DynamicJsonDocument response(1024);
+  DynamicJsonDocument response(4096);
 
   HTTPClient httpClient;
-  this->logger("CALL -> POST " + String(TELEGRAM_HOST)+(this->baseAction + action));
+  this->logger("-- CALL -> POST " + String(TELEGRAM_HOST)+(this->baseAction + action));
   httpClient.begin(*this->client, String(TELEGRAM_HOST), TELEGRAM_PORT, (this->baseAction + action));
   httpClient.addHeader(F("Content-Type"), F("application/json"));
 
   String postData;
   serializeJson(payloadObject, postData);
 
-  this->logger("postData: " + postData);
+  this->logger("-- Post data : " + postData);
   int httpCode = httpClient.POST(postData);
-  this->logger("HTTP Code: " + String(httpCode));
+  this->logger("---- HTTP RESPONSE CODE : " + String(httpCode));
 
   if (httpCode == HTTP_CODE_OK) {
     String payload = httpClient.getString();
-    this->logger(payload);
+    this->logger("---- HTTP RESPONSE PAYLOAD : " + payload);
+
     DeserializationError error = deserializeJson(response, payload);
 
     if (error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.c_str());
+      this->logger(F("---- DeserializeJson() failed : "), false);
+      this->logger(error.c_str());
       
       response = this->buildJsonResponseError(httpCode, F("deserializeJson() failed"));
     }
@@ -435,8 +420,7 @@ DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject paylo
 }
 
 DynamicJsonDocument TelegramBot::buildJsonResponseError(int statusCode, String message) {
-  const int capacity = JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(1);
-  DynamicJsonDocument response(capacity);
+  DynamicJsonDocument response(this->calculateJsonCapacity(3));
   response["ok"] = false;
   response["statusCode"] = statusCode;
   response["message"] = message;

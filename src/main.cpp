@@ -476,74 +476,56 @@ void drawBottomButtonBar() {
 
     if (lastTelegramUpdate.size() > 1){
         screen.drawRect(ARROW_BTN_POS_X, ARROW_BTN_POS_Y, ARROW_BTN_WIDTH, ARROW_BTN_HEIGHT, TFT_GREEN);
-        screen.pushImage(ARROW_BTN_IMG_POS_X, ARROW_BTN_IMG_POS_Y, ARROW_BTN_IMG_WIDTH, ARROW_BTN_IMG_HEIGHT, heart);        
+        screen.pushImage(ARROW_BTN_IMG_POS_X, ARROW_BTN_IMG_POS_Y, ARROW_BTN_IMG_WIDTH, ARROW_BTN_IMG_HEIGHT, arrow);        
     }
 
     screen.drawRect(HEART_BTN_POS_X, HEART_BTN_POS_Y, HEART_BTN_WIDTH, HEART_BTN_HEIGHT, TFT_GREEN);
     screen.pushImage(HEART_BTN_IMG_POS_X, HEART_BTN_IMG_POS_Y, HEART_BTN_IMG_WIDTH, HEART_BTN_IMG_HEIGHT, heart);
 }
 
-void drawScreenNoMessage() {
+void drawScreenMessage(String message, bool displayButtonBar) {
+    clearScreen(screen);
     screen.setTextDatum(TC_DATUM);
-    screen.drawString(F("Pas de nouveau message"), 160, 120, 1);
+    
+    if (false == displayButtonBar) {
+        screen.drawString(message, 160, 98, 1);
+    } else {
+        screen.drawString(message, 160, 120, 1);
+    }
 
-    drawBottomButtonBar();
-}
-
-void drawScreenMessage(String message) {
-    screen.setTextDatum(TC_DATUM);
-    screen.drawString(message, 160, 120, 1);
-
-    drawBottomButtonBar();
+    if (false == displayButtonBar) {
+        drawBottomButtonBar();
+    }
 }
 
 /* ********** TELEGRAM ********** */
 void displayNewMessage() {
-    logger("displayNewMessage");
+    logger("displayNewMessage !");
     messageIsReading = true;
 
     if (lastTelegramUpdate.size() > 0) {
         currentReadingMessage = lastTelegramUpdate[0];
         String message = lastTelegramUpdate[0]["message"]["text"].as<String>();
+
+        logger(F("Display message on screen"));
         drawScreenMessage(message);
+
+        logger(F("Send confirmation read message to bot chat id: "), false);
+        logger(lastTelegramUpdate[0]["message"]["chat"]["id"]);
         telegramBot.sendMessage(lastTelegramUpdate[0]["message"]["chat"]["id"], emoji[2] + "Message \"" + message + "\" lu ");
         lastTelegramUpdate.remove(0);
+
+        tickerManager(false);
+
+        #if MQTT_ENABLE == true
+            char response[256];
+            logger(F("Send confirmation read message to mqtt channel"));
+            sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
+            mqttClient.publish(config.mqttPublishChannel, response);
+        #endif
     } else {
-        drawScreenNoMessage();
+        drawScreenMessage("Pas de nouveau message.", false);
     }
-    /*if (true == newMessageArrived) {
-        messageIsReading = true;
-        logger("displayNewMessage !");
-        lastTelegramUpdate.message.text.replace("/message", "");
-        lastTelegramUpdate.message.text.trim();
-        clearScreen(screen);
-        screen.setCursor(0, 0);
-        delay(100);
-
-        if (lastTelegramUpdate.message.text == "") {
-            logger(F("No new message"));
-            screen.println("Pas de nouveau message.");
-        } else {
-            // Display message on screen
-            logger(F("Display message on screen"));
-            screen.println(lastTelegramUpdate.message.text);
-            delay(100);
-
-            logger(F("Send confirmation read message to bot chat id: "), false);
-            logger(String(lastTelegramUpdate.message.chat.id));
-
-            
-            logger("chat id: " + String(lastTelegramUpdate.message.chat.id));
-            tickerManager(false);
-
-            #if MQTT_ENABLE == true
-                char response[256];
-                sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
-                mqttClient.publish(config.mqttPublishChannel, response);
-            #endif
-        }
-    }*/
-
 }
 
 void handlerNewMessage(JsonArray updates, int newMessages) {
@@ -571,6 +553,12 @@ void handlerNewMessage(JsonArray updates, int newMessages) {
             }
         }
     }
+
+    #if DEBUG == true
+        logger("----- Start handlerNewMessage -----");
+        serializeJson(lastTelegramUpdate, Serial);
+        logger("----- End handlerNewMessage -----");
+    #endif
 
     if (lastTelegramUpdate.size() == TELEGRAM_MAX_UPDATE) {
         telegramBot.pause();

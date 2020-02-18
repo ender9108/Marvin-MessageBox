@@ -14,6 +14,7 @@
 #define TELEGRAM_TTR            30000
 
 #define TELEGRAM_EVT_NEW_MSG    1
+#define TELEGRAM_EVT_ERROR      9
 
 typedef bool (*DataAvailable)();
 typedef byte (*GetNextByte)();
@@ -89,5 +90,6 @@ class TelegramBot {
         DynamicJsonDocument sendPostCommand(String action, JsonObject payload);
         DynamicJsonDocument buildJsonResponseError(int statusCode, String message);
         bool parseUpdates(JsonObject message);
+        const size_t calculateJsonCapacity(int object, int array = 0, int multiplier = 1);
         void logger(String message, bool endLine = true);
 };
