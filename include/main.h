@@ -43,6 +43,7 @@
 #define CALIBRATION_FILE            "/TouchCalData"
 #define REPEAT_CAL                  false
 #define TFT_BCK_LED                 32
+#define FF6                         &FreeMonoBold12pt7b
 
 /* TFT SCREEN BUTTON */
 #define ARROW_BTN_POS_X             230

@@ -76,4 +76,13 @@
     ]
 }
 
+{"ok":true,"result":[
+    {
+        "update_id":500429787,
+        "message":{
+            "message_id":374,
+            "from":{"id":1082701595,"is_bot":false,"first_name":"Alexandre","last_name":"Berthelot","username":"Ender91","language_code":"fr"},
+            "chat":{"id":1082701595,"first_name":"Alexandre","last_name":"Berthelot","username":"Ender91","type":"private"},
+            "date":1582051920,"text":"Coucou mon petit chat d'amour"}}]}
+
 {"ok":true,"result":{"id":977407120,"is_bot":true,"first_name":"GodricBot","username":"godric_msg_bot","can_join_groups":true,"can_read_all_group_messages":false,"supports_inline_queries":false}}

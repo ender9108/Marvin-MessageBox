@@ -1,4 +1,7 @@
 #include "main.h"
+//#include "Free_Fonts.h"
+
+#define TEXT "aA MWyz~12"
 
 const char *configFilePath  = "/config.json";
 const char *wifiApSsid      = "MarvinMessageBoxSsid";
@@ -21,17 +24,14 @@ TFT_eSPI screen = TFT_eSPI(); // Invoke custom library
 bool wifiConnected = false;
 bool startApp = false;
 bool messageIsReading = false;
-bool newMessageArrived = false;
 bool ledStatus = false;
 bool ledErrorMode= false;
-long telegramBotLasttime; 
 String errorMessage = "";
 unsigned int previousResetBtnState = HIGH;
 unsigned long resetBtnDuration = 0;
 unsigned long resetRequested = 0;
 unsigned long restartRequested = 0;
-unsigned int blinkColor = 1;
-JsonArray lastTelegramUpdate;
+const JsonArray lastTelegramUpdate;
 JsonObject currentReadingMessage;
 String emoji[3] = {
     "\u2764\ufe0f", // kiss
@@ -261,14 +261,18 @@ void handleHome() {
 
         if (false == MQTT_ENABLE) {
             content.replace("%MQTT_INPUT_HIDDEN%", "d-none");
+            content.replace("%MQTT_REQ_OR_DIS%", "disabled");
         } else {
             content.replace("%MQTT_INPUT_HIDDEN%", "");
+            content.replace("%MQTT_REQ_OR_DIS%", "required");
         }
 
         if (false == OTA_ENABLE) {
             content.replace("%OTA_INPUT_HIDDEN%", "d-none");
+            content.replace("%OTA_REQ_OR_DIS%", "disabled");
         } else {
             content.replace("%OTA_INPUT_HIDDEN%", "");
+            content.replace("%OTA_REQ_OR_DIS%", "required");
         }
 
         content.replace("%MQTT_HOST%", String(config.mqttHost));
@@ -401,6 +405,77 @@ void serverConfig() {
     logger("HTTP server started");
 }
 
+/* ********** TELEGRAM ********** */
+void displayNewMessage() {
+    logger("displayNewMessage !");
+    messageIsReading = true;
+
+    if (lastTelegramUpdate.size() > 0) {
+        currentReadingMessage = lastTelegramUpdate[0];
+        String message = currentReadingMessage["message"]["text"].as<String>();
+
+        logger(F("Display message on screen"));
+        drawScreenMessage(message);
+
+        logger(F("Send confirmation read message to bot chat id: "), false);
+        logger(currentReadingMessage["message"]["chat"]["id"]);
+        telegramBot.sendMessage(currentReadingMessage["message"]["chat"]["id"], emoji[2] + "Message \"" + message + "\" lu ");
+
+        lastTelegramUpdate.remove(0);
+
+        tickerManager(false);
+
+        #if MQTT_ENABLE == true
+            char response[256];
+            logger(F("Send confirmation read message to mqtt channel"));
+            sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
+            mqttClient.publish(config.mqttPublishChannel, response);
+        #endif
+    } else {
+        drawScreenMessage("Pas de nouveau message.", false);
+    }
+}
+
+void handlerNewMessage(JsonArray updates, int newMessages) {
+    JsonArray content = lastTelegramUpdate.createNestedArray();
+
+    for (int i = 0; i < updates.size(); i++) {
+        if (updates[i].containsKey("message")) {
+            if (updates[i]["message"].containsKey("text")) {
+                String message = updates[i]["message"]["text"];
+                long chatId = updates[i]["message"]["chat"]["id"];
+                logger(String(chatId));
+
+                if (message != "") {
+                    tickerManager(true, 2);
+                    
+                    content.add(updates[i]);
+
+                    telegramBot.sendMessage(
+                        chatId, 
+                        "Le message \"" + message + "\" à été reçu. En attente de lecture.",
+                        "Markdown"
+                    );
+                }
+            } // endif containsKey("text")
+
+            if (updates[i]["message"].containsKey("photo")) {
+                // gérer les photos
+                logger("Picture received !!");
+            } // endif containsKey("photo")
+        }
+    }
+
+    if (lastTelegramUpdate.size() == TELEGRAM_MAX_UPDATE) {
+        telegramBot.pause();
+    }
+}
+
+void sendHeart() {
+    logger(F("Send emoji heart."));
+    telegramBot.sendMessage(currentReadingMessage["message"]["chat"]["id"], emoji[1]);
+}
+
 /* ********** SCREEN ********** */
 void touchCalibrate() {
   uint16_t calData[5];
@@ -493,81 +568,32 @@ void drawScreenMessage(String message, bool displayButtonBar) {
         screen.drawString(message, 160, 120, 1);
     }
 
-    if (false == displayButtonBar) {
+    if (true == displayButtonBar) {
         drawBottomButtonBar();
     }
 }
 
-/* ********** TELEGRAM ********** */
-void displayNewMessage() {
-    logger("displayNewMessage !");
-    messageIsReading = true;
+void touchDetect() {
+    uint16_t x, y;
 
-    if (lastTelegramUpdate.size() > 0) {
-        currentReadingMessage = lastTelegramUpdate[0];
-        String message = lastTelegramUpdate[0]["message"]["text"].as<String>();
+    if (screen.getTouch(&x, &y)) {
+        logger("Touch X: " + String(x));
+        logger("Touch Y: " + String(y));
 
-        logger(F("Display message on screen"));
-        drawScreenMessage(message);
-
-        logger(F("Send confirmation read message to bot chat id: "), false);
-        logger(lastTelegramUpdate[0]["message"]["chat"]["id"]);
-        telegramBot.sendMessage(lastTelegramUpdate[0]["message"]["chat"]["id"], emoji[2] + "Message \"" + message + "\" lu ");
-        lastTelegramUpdate.remove(0);
-
-        tickerManager(false);
-
-        #if MQTT_ENABLE == true
-            char response[256];
-            logger(F("Send confirmation read message to mqtt channel"));
-            sprintf(response, "{\"code\":\"200\",\"uuid\":\"%s\",\"actionCalled\":\"readMessage\",\"payload\":\"Message lu.\"}", config.uuid);
-            mqttClient.publish(config.mqttPublishChannel, response);
-        #endif
-    } else {
-        drawScreenMessage("Pas de nouveau message.", false);
-    }
-}
-
-void handlerNewMessage(JsonArray updates, int newMessages) {
-    for (int i = 0; i < updates.size(); i++) {
-        if (updates[i].containsKey("message")) {
-            if (updates[i]["message"].containsKey("text")) {
-                String message = updates[i]["message"]["text"].as<String>();
-                message.trim();
-
-                if (message != "") {
-                    logger(F("New message !"));
-                    newMessageArrived = true;
-                    tickerManager(true, 2);
-
-                    lastTelegramUpdate.add(updates[i]);
-                    telegramBot.sendMessage(
-                        updates[i]["message"]["chat"]["id"], 
-                        "Le message \"" + message + "\" à été reçu. En attente de lecture."
-                    );
-                }
+        if ((x > ARROW_BTN_POS_X) && (x < (ARROW_BTN_POS_X + ARROW_BTN_WIDTH))) {
+            if ((y > ARROW_BTN_POS_Y) && (y <= (ARROW_BTN_POS_Y + ARROW_BTN_HEIGHT))) {
+                Serial.println("Arrow btn hit");
+                displayNewMessage();
             }
+        }
 
-            if (updates[i]["message"].containsKey("photo")) {
-                // gérer les photos
+        if ((x > HEART_BTN_POS_X) && (x < (HEART_BTN_POS_X + HEART_BTN_WIDTH))) {
+            if ((y > HEART_BTN_POS_Y) && (y <= (HEART_BTN_POS_Y + HEART_BTN_HEIGHT))) {
+                Serial.println("Heart btn hit");
+                sendHeart();
             }
         }
     }
-
-    #if DEBUG == true
-        logger("----- Start handlerNewMessage -----");
-        serializeJson(lastTelegramUpdate, Serial);
-        logger("----- End handlerNewMessage -----");
-    #endif
-
-    if (lastTelegramUpdate.size() == TELEGRAM_MAX_UPDATE) {
-        telegramBot.pause();
-    }
-}
-
-void sendHeart() {
-    logger(F("Send emoji heart."));
-    telegramBot.sendMessage(currentReadingMessage["message"]["chat"]["id"], emoji[1]);
 }
 
 /* ********** LEDS ********** */
@@ -598,7 +624,7 @@ void blinkLed() {
                 ledcWrite(LED_CHAN_1, i);
                 ledcWrite(LED_CHAN_2, i);
                 ledcWrite(LED_CHAN_3, i);
-                delay(15);
+                delay(20);
             }
         } else {
             for (int i = 255; i >= 0; i--) {
@@ -606,7 +632,7 @@ void blinkLed() {
                 ledcWrite(LED_CHAN_1, i);
                 ledcWrite(LED_CHAN_2, i);
                 ledcWrite(LED_CHAN_3, i);
-                delay(15);
+                delay(20);
             }
         }
     }
@@ -736,11 +762,12 @@ void setup() {
         pinMode(BTN_RESET_PIN, INPUT);
 
         telegramBot.setToken(config.telegramBotToken);
-        telegramBot.on(TELEGRAM_EVT_NEW_MSG, handlerNewMessage);
+        telegramBot.on(TELEGRAM_EVT_NEW_UPDATE, handlerNewMessage);
         telegramBot.setTimeToRefresh(CHECK_MSG_DELAY);
         clearScreen(screen);
+        screen.setFreeFont(FF6);
         tickerManager(false);
-        //digitalWrite(TFT_BCK_LED, LOW);
+        digitalWrite(TFT_BCK_LED, LOW);
         logger(F("App started !"));
     }
 
@@ -775,8 +802,185 @@ void setup() {
     #endif
 }
 
+/*void testFont() {
+
+  // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  // Show all 48 fonts in centre of screen ( x,y coordinate 160,120)
+  // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+  // Where font sizes increase the screen is not cleared as the larger fonts overwrite
+  // the smaller one with the background colour.
+
+  // Set text datum to middle centre
+  screen.setTextDatum(MC_DATUM);
+
+  // Set text colour to orange with black background
+  screen.setTextColor(TFT_WHITE, TFT_BLACK);
+  
+  screen.fillScreen(TFT_BLACK);            // Clear screen
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF1, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF1);                 // Select the font
+  screen.drawString(TEXT, 160, 120, GFXFF);// Print the string name of the font
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF2, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF2);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF5, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF5);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF6, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF6);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF9, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF9);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF10, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF10);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF13, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF13);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF14, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF14);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF17, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF17);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF18, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF18);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF21, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF21);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF22, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF22);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF25, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF25);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF26, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF26);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF29, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF29);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF30, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF30);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF33, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF33);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF34, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF34);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF37, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF37);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF38, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF38);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF41, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF41);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF42, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF42);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  
+  screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF45, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF45);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+  //screen.fillScreen(TFT_BLACK);
+  screen.setFreeFont(FF18);                 // Select the font
+  screen.drawString(sFF46, 160, 60, GFXFF);// Print the string name of the font
+  screen.setFreeFont(FF46);
+  screen.drawString(TEXT, 160, 120, GFXFF);
+  delay(5000);
+
+}*/
+
 void loop() {
     if (true == startApp) {
+        //testFont();
+        touchDetect();
+
         #if MQTT_ENABLE == true
             if (true == config.mqttEnable) {
                 if (!mqttClient.connected()) {
@@ -796,7 +1000,7 @@ void loop() {
         if (digitalRead(BTN_READ_PIN) == LOW) {
             if (false == messageIsReading) {
                 telegramBot.pause();
-                //digitalWrite(TFT_BCK_LED, HIGH);
+                digitalWrite(TFT_BCK_LED, HIGH);
                 displayNewMessage();
             }
         }
@@ -804,35 +1008,13 @@ void loop() {
         if (digitalRead(BTN_READ_PIN) == HIGH) {
             if (true == messageIsReading) {
                 messageIsReading = false;
-                newMessageArrived = false;
                 clearScreen(screen);
-                //digitalWrite(TFT_BCK_LED, LOW);
+                digitalWrite(TFT_BCK_LED, LOW);
                 telegramBot.resume();
             }
         }
 
-        uint16_t x, y;
-
-        if (screen.getTouch(&x, &y)) {
-            logger("Touch X: " + String(x));
-            logger("Touch Y: " + String(y));
-
-            if ((x > ARROW_BTN_POS_X) && (x < (ARROW_BTN_POS_X + ARROW_BTN_WIDTH))) {
-                if ((y > ARROW_BTN_POS_Y) && (y <= (ARROW_BTN_POS_Y + ARROW_BTN_HEIGHT))) {
-                    Serial.println("Arrow btn hit");
-                    displayNewMessage();
-                }
-            }
-
-            if ((x > HEART_BTN_POS_X) && (x < (HEART_BTN_POS_X + HEART_BTN_WIDTH))) {
-                if ((y > HEART_BTN_POS_Y) && (y <= (HEART_BTN_POS_Y + HEART_BTN_HEIGHT))) {
-                    Serial.println("Heart btn hit");
-                    sendHeart();
-                }
-            }
-        }
-
-        /*if (digitalRead(BTN_RESTART_PIN) == LOW) {
+        if (digitalRead(BTN_RESTART_PIN) == LOW) {
             logger("Button restart pressed !");
             tickerManager(true, 0.5);
             restartRequested = millis();
@@ -867,7 +1049,7 @@ void loop() {
                 resetConfig();
                 restart();
             }
-        }*/
+        }
 
         #if OTA_ENABLE == true
             logger(F("Start ArduinoOTA handle"));

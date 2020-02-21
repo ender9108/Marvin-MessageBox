@@ -38,7 +38,7 @@
                 <legend>OTA Updater</legend>
                 <div class="form-group ">
                     <label for="otaPassword">Password (MD5)</label>
-                    <input type="text" class="form-control" id="otaPassword" name="otaPassword" value="%OTA_PASSWORD%" required>
+                    <input type="text" class="form-control" id="otaPassword" name="otaPassword" value="%OTA_PASSWORD%" %OTA_REQ_OR_DIS%>
                 </div>
             </fieldset>
             <fieldset class="mt-4 %MQTT_INPUT_HIDDEN%">
@@ -49,27 +49,27 @@
                 </div>
                 <div class="form-group">
                     <label for="mqttHost">Host</label>
-                    <input type="text" class="form-control" id="mqttHost" name="mqttHost" value="%MQTT_HOST%" required>
+                    <input type="text" class="form-control" id="mqttHost" name="mqttHost" value="%MQTT_HOST%" %MQTT_REQ_OR_DIS%>
                 </div>
                 <div class="form-group">
                     <label for="mqttPort">Port</label>
-                    <input type="number" class="form-control" id="mqttPort" name="mqttPort" value="%MQTT_PORT%" required>
+                    <input type="number" class="form-control" id="mqttPort" name="mqttPort" value="%MQTT_PORT%" %MQTT_REQ_OR_DIS%>
                 </div>
                 <div class="form-group">
                     <label for="mqttUsername">Username</label>
-                    <input type="text" class="form-control" id="mqttUsername" name="mqttUsername" value="%MQTT_USERNAME%" required>
+                    <input type="text" class="form-control" id="mqttUsername" name="mqttUsername" value="%MQTT_USERNAME%" %MQTT_REQ_OR_DIS%>
                 </div>
                 <div class="form-group">
                     <label for="mqttPasswd">Password</label>
-                    <input type="password" class="form-control" id="mqttPasswd" name="mqttPasswd" value="%MQTT_PASSWD%" required>
+                    <input type="password" class="form-control" id="mqttPasswd" name="mqttPasswd" value="%MQTT_PASSWD%" %MQTT_REQ_OR_DIS%>
                 </div>
                 <div class="form-group">
                     <label for="mqttPublishChannel">Publish channel</label>
-                    <input type="text" class="form-control" id="mqttPublishChannel" name="mqttPublishChannel" value="%MQTT_PUB_CHAN%" required>
+                    <input type="text" class="form-control" id="mqttPublishChannel" name="mqttPublishChannel" value="%MQTT_PUB_CHAN%" %MQTT_REQ_OR_DIS%>
                 </div>
                 <div class="form-group">
                     <label for="mqttSubscribeChannel">Subscribe channel</label>
-                    <input type="text" class="form-control" id="mqttSubscribeChannel" name="mqttSubscribeChannel" value="%MQTT_SUB_CHAN%" required>
+                    <input type="text" class="form-control" id="mqttSubscribeChannel" name="mqttSubscribeChannel" value="%MQTT_SUB_CHAN%" %MQTT_REQ_OR_DIS%>
                 </div>
             </fieldset>
             <button type="submit" class="btn btn-primary mt-4">Save</button>

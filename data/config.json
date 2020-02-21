@@ -1,13 +1,13 @@
 {
-    "wifiSsid": "",
-    "wifiPassword": "",
+    "wifiSsid": "XT1572 1643",
+    "wifiPassword": "d9fd590fd891",
     "mqttHost": "",
     "mqttPort": 1883,
     "mqttUsername": "",
     "mqttPassword": "",
     "mqttPublishChannel": "marvin/device/action",
     "mqttSubscribeChannel": "marvin/device/listen",
-    "telegramBotToken": "",
+    "telegramBotToken": "977407120:AAGnsK3fZRIMKEgk0TUjmz1rfQ7W1scPwXA",
     "otaPassword": "",
     "uuid": "2020-hdfkjdf-65GVH-qsdsqlqd-9786740009"
 }

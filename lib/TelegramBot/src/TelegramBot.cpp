@@ -43,7 +43,7 @@ void TelegramBot::resume() {
 
 bool TelegramBot::on(int event, EventCallback callback) {
   switch (event) {
-    case TELEGRAM_EVT_NEW_MSG:
+    case TELEGRAM_EVT_NEW_UPDATE:
       this->onNewUpdate = callback;
       return true;
       break;
@@ -106,6 +106,11 @@ int TelegramBot::getUpdates(int offset, int limit) {
       }
 
       this->updates = temp;
+
+      logger("----- Updates");
+      serializeJson(this->updates, Serial);
+      logger("");
+      logger("----- Updates");
 
       return messageIndex;
     } else {
@@ -356,6 +361,7 @@ DynamicJsonDocument TelegramBot::sendDocument(
 }
 
 DynamicJsonDocument TelegramBot::sendGetCommand(String action) {
+  this->logger("----- START sendGettCommand -----");
   DynamicJsonDocument response(4096);
 
   HTTPClient httpClient;
@@ -378,12 +384,19 @@ DynamicJsonDocument TelegramBot::sendGetCommand(String action) {
     response = this->buildJsonResponseError(httpCode, httpClient.getString());
   }
 
+  if (false == response["ok"]) {
+    this->logger("---- HTTP RESPONSE ERROR : " + String(response["message"].as<String>()));
+  }
+
   httpClient.end();
+  this->logger("----- END sendGettCommand -----\n");
 
   return response;
 }
 
 DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject payloadObject) {
+  this->logger("----- START sendPostCommand -----");
+
   DynamicJsonDocument response(4096);
 
   HTTPClient httpClient;
@@ -414,7 +427,12 @@ DynamicJsonDocument TelegramBot::sendPostCommand(String action, JsonObject paylo
     response = this->buildJsonResponseError(httpCode, httpClient.getString());
   }
 
+  if (false == response["ok"]) {
+    this->logger("---- HTTP RESPONSE ERROR : " + String(response["message"].as<String>()));
+  }
+
   httpClient.end();
+  this->logger("----- END sendPostCommand -----\n");
 
   return response;
 }
